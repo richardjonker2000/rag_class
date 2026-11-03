@@ -143,13 +143,62 @@ print("articles of evidence per question:",
 # models work on pieces of text, so first we have to cut them up.
 
 # %% [markdown]
+# **Why not just embed each whole article?** Let's measure it. For a real question we embed (1) the
+# evidence sentence that answers it, (2) the 200-word chunk around it, and (3) the whole article, and
+# compare each with the question by cosine similarity.
+
+# %%
+from sentence_transformers import SentenceTransformer
+from ragclass import chunking as C
+emb_model = SentenceTransformer("BAAI/bge-small-en-v1.5", device="cuda" if GPU else "cpu")
+PREFIX = "Represent this sentence for searching relevant passages: "      # BGE's instruction for queries
+print("This embedding model reads at most", emb_model.max_seq_length, "tokens (~380 words). Longer texts are cut off.\n")
+
+def three_way(qrow):
+    d, a, b = mh.evidence_spans(qrow.qid)[0]
+    body = mh.articles.body[d]
+    chunk = next(c["text"] for c in C.fixed_size(body, doc_id=d, size=200) if c["start"] <= a < c["end"])
+    e = emb_model.encode([PREFIX + qrow.query, body[a:b], chunk, body], normalize_embeddings=True)
+    return dict(sentence=float(e[0] @ e[1]), chunk_200=float(e[0] @ e[2]), whole_article=float(e[0] @ e[3]),
+                evidence_at_word=len(body[:a].split()), article_words=len(body.split()), fact=body[a:b])
+
+q0 = mh.queries.loc[mh.queries.qid == 36].iloc[0]        # a "best sportsbooks" guide: many topics in one article
+if not len(mh.evidence_spans(36)):                        # (quick-test mode may not contain this article)
+    q0 = mh.queries[mh.queries.question_type != "null_query"].iloc[2]
+r0 = three_way(q0)
+print("QUESTION:", q0.query, "\nEVIDENCE:", r0["fact"])
+print(f"(evidence starts at word {r0['evidence_at_word']} of {r0['article_words']})\n")
+for k in ["sentence", "chunk_200", "whole_article"]:
+    print(f"  similarity question ↔ {k:14s} {r0[k]:.3f}")
+
+# %% [markdown]
+# Here the evidence is one sentence in an article that reviews many different sportsbooks, and the
+# whole-article vector is clearly further from the question. But one example proves nothing.
+# Averaged over 60 questions, split by **where** in the article the evidence sits (inside the first
+# ~380 words the model reads, or further down):
+
+# %%
+sample = mh.queries[mh.queries.question_type != "null_query"].head(60)
+res3 = pd.DataFrame([three_way(r) for r in sample.itertuples()])
+res3["evidence position"] = np.where(res3.evidence_at_word < 380, "in the first 380 words", "after word 380")
+res3.groupby("evidence position")[["sentence", "chunk_200", "whole_article"]].mean().round(3)
+
+# %% [markdown]
 # 🤔 **Question A1.** Why not embed every article as one vector, or paste whole articles into the prompt?
 #
 # <details><summary>Answer</summary>
 #
-# * An embedding of a 2,000-word article is an *average* of many topics. The one sentence you
-#   need gets diluted, and the vector ends up close to nothing in particular.
-# * Most embedding models only read the first 256–512 tokens and silently cut the rest.
+# Look at the average table honestly: for most news articles the whole article is about as similar to
+# the question as the chunk. A news article is usually about **one story**, and these long questions
+# describe the story, so the article's opening already matches. And the lone sentence scores *lowest*:
+# without its context it is hard to match ("who is *he*?"). So why chunk at all?
+#
+# * **Multi-topic documents get diluted**, like the sportsbook guide above (and manuals, reports,
+#   contracts, wikis): one vector for many topics is close to none of them.
+# * **Truncation:** the model reads only the first 512 tokens. Evidence further down is never seen;
+#   the "whole article" score is really a score of the article's opening.
+# * **The prompt budget:** we can put ~5 chunks in front of the LLM, not 5 whole articles of 2,000+
+#   words. Retrieval must deliver the *passage*, not just the right document.
 # * In the prompt, whole articles cost tokens and money, add latency, and the relevant sentence
 #   gets lost among irrelevant text.
 #
@@ -204,26 +253,48 @@ pd.DataFrame(rows)
 
 # %%
 from ragclass.show import show_code, show_html, highlight
-show_code(C.fixed_size, C.recursive)
 
 # %% [markdown]
-# **Look at real chunks.** The same article, cut by three chunkers. Where does each chunk start and end?
+# **Look at real chunks.** The opening of one article, cut by each chunker (small sizes so you can see
+# several chunks). Each colour is one chunk; ¶ marks a paragraph break.
 
 # %%
+from html import escape
+COLORS = ["#FCE3A6", "#C9DDF8", "#D9F0E3", "#E6DCF6", "#F8D0CE"]
 art_id = 5
-body = mh.articles.body[art_id]
-print("ARTICLE:", mh.articles.title[art_id], f"({len(body.split())} words)\n")
-for name, fn, kw in [("fixed 50 words", C.fixed_size, dict(size=50)),
-                     ("sentence-packed 200", C.sentence_packed, dict(size=200)),
-                     ("recursive (paragraphs) 200", C.recursive, dict(size=200))]:
-    ch = fn(body, doc_id=art_id, **kw)
-    print(f"===== {name}: {len(ch)} chunks =====")
-    for c in ch[:3]:
-        t = c["text"]
-        print(f"  [{len(t.split()):3d} words] «{t[:90]}  …  {t[-60:]}»")
-    print()
+words_pos = [m.end() for m in __import__("re").finditer(r"\S+", mh.articles.body[art_id])]
+excerpt = mh.articles.body[art_id][:words_pos[min(220, len(words_pos) - 1)]]
+print("ARTICLE:", mh.articles.title[art_id], "— first 220 words\n")
+
+def show_chunks(name, chunks):
+    spans = "".join(f'<span style="background:{COLORS[i % 5]};color:#111;padding:1px 2px">'
+                    f'{escape(excerpt[c["start"]:c["end"]])}</span> ' for i, c in enumerate(chunks))
+    show_html(f"<p><b>{name}</b> — {len(chunks)} chunks<br>{spans.replace(chr(10) * 2, ' ¶ ')}</p>")
+
+show_chunks("Fixed size: every 40 words (cuts anywhere)", C.fixed_size(excerpt, size=40))
+show_chunks("Sentence-packed: whole sentences up to 60 words", C.sentence_packed(excerpt, size=60))
+show_chunks("Recursive: paragraphs first, up to 80 words", C.recursive(excerpt, size=80))
 
 # %% [markdown]
+# **Overlap (sliding windows):** each window repeats the last 10 words of the previous one (in bold), so a
+# sentence cut by one window is complete in the next.
+
+# %%
+rows = []
+for i, c in enumerate(C.fixed_size(excerpt, size=40, overlap=10)[:4]):
+    w = excerpt[c["start"]:c["end"]].split()
+    shared, rest = (w[:10], w[10:]) if i else ([], w)
+    rows.append(f'<span style="background:{COLORS[i % 5]};color:#111;padding:1px 2px">window {i + 1}: <b>{escape(" ".join(shared))}</b> '
+                f'{escape(" ".join(rest))}</span>')
+show_html("<br>".join(rows))
+
+# %% [markdown]
+# Semantic chunking (cut where the topic changes) works the same way but needs an embedding of every
+# sentence; try `C.semantic(excerpt, emb_model)` in the stretch tasks. The code of the chunkers is short:
+
+# %%
+show_code(C.fixed_size, C.recursive)
+
 # A second, quieter problem: chunks that **start in the middle of a thought**. A chunk that begins
 # with "He said…" or "This means…" is meaningless on its own, both for the embedding and for the LLM.
 # How often does that happen?
@@ -428,7 +499,7 @@ for q in ["heart attack treatment", "myocardial infarction treatment"]:
 from sentence_transformers import SentenceTransformer
 dev = "cuda" if GPU else "cpu"
 models = {"MiniLM (general)": SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device=dev),
-          "BGE-small (general)": SentenceTransformer("BAAI/bge-small-en-v1.5", device=dev),
+          "BGE-small (general)": emb_model,                      # loaded in Part A
           "PubMedBERT (biomedical)": SentenceTransformer("NeuML/pubmedbert-base-embeddings", device=dev)}
 model = models["MiniLM (general)"]
 

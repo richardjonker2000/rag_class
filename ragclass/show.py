@@ -23,7 +23,7 @@ def highlight(text: str, terms, color: str = "#FFE58F", width: int | None = None
     if not terms:
         return t
     pat = re.compile(r"(?<![\w-])(" + "|".join(re.escape(html.escape(x)) for x in terms) + r")(?![\w-])", re.I)
-    return pat.sub(lambda m: f'<mark style="background:{color}">{m.group(0)}</mark>', t)
+    return pat.sub(lambda m: f'<mark style="background:{color};color:#111">{m.group(0)}</mark>', t)
 
 
 def show_html(s: str) -> None:
