@@ -28,6 +28,8 @@ else:                                        # on Colab: clone the course repo o
     if not os.path.exists("rag_class"):
         subprocess.run(["git", "clone", "-q", "--depth", "1",
                         "https://github.com/richardjonker2000/rag_class.git"], check=True)
+    else:                                    # already cloned: get the latest version of the course code
+        subprocess.run(["git", "-C", "rag_class", "pull", "-q"], check=False)
     sys.path.insert(0, "rag_class")
 try:
     import sentence_transformers, openai  # noqa: F401  (preinstalled on Colab)
