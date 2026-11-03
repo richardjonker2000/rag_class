@@ -822,7 +822,9 @@ question("BM25 wins on some questions, embeddings on others. How do you decide w
 y = answer("Which retriever is better?", "You need labelled queries and a metric, computed over all of them.",
            note="""Test collection = documents + queries + relevance judgements (qrels). Cranfield paradigm (1960s), TREC since 1992.
 BioASQ: biomedical experts searched PubMed and marked relevant abstracts. In industry: human raters with
-guidelines, clicks, and increasingly LLM judges -- each with biases.""")
+guidelines, clicks, and increasingly LLM judges -- each with biases.
+Gold labels are always incomplete: TREC builds them by POOLING the top results of many systems and judging only those;
+everything else is assumed irrelevant. A new system that finds unjudged relevant documents looks worse than it is.""")
 for i, (t_, d_, col) in enumerate([("Documents", "the corpus you search\n40,221 abstracts", BLUE),
                                    ("Queries", "realistic questions\n300 BioASQ questions", AMBER),
                                    ("Relevance labels", "which docs are relevant\nexperts: median 6 per question",
@@ -831,11 +833,16 @@ for i, (t_, d_, col) in enumerate([("Documents", "the corpus you search\n40,221 
     box([x, y, 270, 120], TINT[col], preset="roundRect")
     text([x + 16, y + 16, 240, 22], t_, 17, col, bold=True)
     text([x + 16, y + 48, 240, 60], d_, 14, INK, spacing=1.25)
-rich([M, y + 150, W - 2 * M, 120], [
+rich([M, y + 136, W - 2 * M, 80], [
     "Where labels come from: **experts** (BioASQ, TREC), **crowd raters** with guidelines, **clicks**, **LLM judges**",
-    "Public benchmarks: **BEIR**, **MTEB** (retrieval leaderboards), TREC tracks. Build your own: 50–200 real queries "
-    "is already very useful",
-], 16, INK, bullets=True, spacing=1.15, after=10)
+    "Public benchmarks: **BEIR**, **MTEB**, TREC tracks. Build your own: 50–200 real queries is already very useful",
+], 15, INK, bullets=True, spacing=1.15, after=8)
+box([M, y + 206, W - 2 * M, 112], TINT[RED], preset="roundRect")
+text([M + 18, y + 218, 600, 16], "THE “GOLD STANDARD” IS NEVER COMPLETE", 11, RED, bold=True, spc=1.2)
+rich([M + 18, y + 240, W - 2 * M - 36, 76], [
+    "Nobody reads all 40,221 abstracts for every question: experts judge what **their own searches** found. Other "
+    "documents may support the answer too. **Unlabelled ≠ irrelevant**: a better system can be penalised for "
+    "finding relevant documents nobody labelled. (Lab 2, Part 5: read the “false positives” yourself.)"], 14, INK, spacing=1.25)
 
 A_RANK = [1, 0, 0, 0, 1]
 B_RANK = [0, 1, 1, 1, 0]

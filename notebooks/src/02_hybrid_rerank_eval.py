@@ -322,6 +322,8 @@ lb["nDCG@10"].plot.barh(figsize=(7, 3.5), title="nDCG@10 on BioASQ questions", x
 # ---
 # ## Part 5 — Can we trust the labels?
 #
+# Remember Question 0.0 in Lab 1: the gold standard is never complete. Here is what that looks like.
+#
 # Let's look at documents our best system ranks in the **top 3** that the experts did **not** mark as relevant.
 
 # %%

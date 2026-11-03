@@ -125,6 +125,20 @@ print("articles of evidence per question:",
       mh.queries.evidence.map(lambda ev: len({e['title'] for e in ev})).value_counts().sort_index().to_dict())
 
 # %% [markdown]
+# 🤔 **Question 0.0.** These labels are what we will measure retrieval against: our "gold standard". Are they the complete truth?
+#
+# <details><summary>Answer</summary>
+#
+# No. A gold standard is never truly gold. Nobody reads all 40,221 abstracts for every question: the
+# BioASQ experts judged the abstracts *their own searches* found. Other abstracts may answer the
+# question just as well, and some labelled ones are borderline. Likewise, MultiHop-RAG's evidence
+# sentences are the ones the dataset builders picked; another sentence or article may support the
+# same answer. So **unlabelled ≠ irrelevant**: a retriever that finds a good document nobody labelled
+# gets *no credit*. Keep this in mind whenever you read a metric. In Lab 2 (Part 5) you will look at
+# such "false positives" yourself.
+# </details>
+
+# %% [markdown]
 # 🤔 **Question 0.1.** Look at the questions above. What will make them hard to search for?
 #
 # <details><summary>Answer</summary>
