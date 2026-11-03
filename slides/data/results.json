@@ -52,6 +52,10 @@
   "PubMedBERT": {
    "nDCG@10": 0.439,
    "R@100": 0.554
+  },
+  "Hybrid + rerank (top 50)": {
+   "nDCG@10": 0.633,
+   "R@100": 0.632
   }
  },
  "leaderboard_note": "300 BioASQ questions, all 40,221 abstracts, Colab T4 run (3 Nov 2026)",

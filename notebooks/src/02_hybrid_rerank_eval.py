@@ -147,14 +147,27 @@ for name, path in dense_models.items():
     print(f"{name}: embedded in {time.time()-t:.0f}s")
 
 def leaderboard(runs):
-    """Score every system on the questions that *all* systems were run on (a fair comparison)."""
+    """Score every system on the questions that *all* systems were run on (a fair comparison), best first."""
     common = set(qrels).intersection(*[set(r) for r in runs.values()])
     q = {k: v for k, v in qrels.items() if k in common}
     lb = pd.DataFrame({n: M.evaluate(r, q) for n, r in runs.items()}).T[
-        ["nDCG@10", "MRR@10", "P@5", "R@10", "R@100", "MAP@100"]].round(3).sort_values("nDCG@10")
-    lb.columns.name = f"{len(q)} questions"
+        ["nDCG@10", "MRR@10", "P@5", "R@10", "R@100", "MAP@100"]].round(3)
+    if "BM25" in lb.index:
+        lb.insert(1, "Δ nDCG vs BM25", (lb["nDCG@10"] - lb.loc["BM25", "nDCG@10"]).round(3))
+    lb = lb.sort_values("nDCG@10", ascending=False)
+    lb.index.name = f"system ({len(q)} questions)"
     return lb
-leaderboard(runs)
+
+def show_lb(lb):
+    """Display a leaderboard: best value of each column in bold green."""
+    from IPython.display import display
+    metrics = [c for c in lb.columns if not c.startswith("Δ")]
+    display(lb.style.format(precision=3, subset=metrics).format("{:+.3f}", subset=[c for c in lb.columns if c.startswith("Δ")])
+            .highlight_max(subset=metrics, props="font-weight:bold;background-color:#D9F0E3;color:#111")
+            .set_caption("Best first. Bold green = best in that column. Δ = difference in nDCG@10 from BM25 "
+                         "(positive = better than BM25)."))
+
+show_lb(leaderboard(runs))
 
 # %% [markdown]
 # 🤔 **Question 2.1.** Rank the systems. Does a general embedding model beat BM25? Does a *domain-specific* one? What would you try next if this were your company's data?
@@ -213,7 +226,7 @@ def hybrid_run(dense_name, k_rrf=60, weights=(1, 1)):
 runs[f"Hybrid: BM25 + {best_dense}"] = hybrid_run(best_dense)
 runs[f"Hybrid: 2×BM25 + {best_dense}"] = hybrid_run(best_dense, weights=(2, 1))   # trust BM25 more
 runs["Hybrid: BM25 + MiniLM"] = hybrid_run("MiniLM (general, small)")
-leaderboard(runs)
+show_lb(leaderboard(runs))
 
 # %% [markdown]
 # **RRF step by step on one real question.** For every document in either top 10: its rank in each
@@ -297,9 +310,9 @@ for qid, q in list(zip(qids, questions))[:n_q]:
     top, _ = reranker.rerank(q, cand, bio.docs)
     reranked[qid] = ids[top].tolist() + hyb[qid][50:]
 print(f"reranked {n_q} queries x 50 docs in {time.time()-t:.0f}s")
-runs["Hybrid + rerank (top 50)"] = reranked
+runs[f"Hybrid + rerank (top 50 of BM25 + {best_dense})"] = reranked
 lb = leaderboard(runs)          # on CPU only the reranked subset of questions is compared
-lb
+show_lb(lb)
 
 # %% [markdown]
 # **What did the reranker actually do?** One question: the hybrid top 10, and where each document
@@ -321,17 +334,18 @@ print("Q:", q.question)
 before_after
 
 # %%
-lb["nDCG@10"].plot.barh(figsize=(7, 3.5), title="nDCG@10 on BioASQ questions", xlim=(0, 1)); plt.show()
+lb["nDCG@10"][::-1].plot.barh(figsize=(7, 3.5), title="nDCG@10 on BioASQ questions (best at the top)", xlim=(0, 1)); plt.show()
 
 # %% [markdown]
 # 🤔 **Question 4.1.** Did reranking help? Note that our cross-encoder was trained on *web search* queries (MS MARCO), not biomedicine. What does that suggest?
 #
 # <details><summary>Answer</summary>
-# Rerankers usually give the largest single jump in precision at the top, because the
-# cross-encoder can model the interaction between query and document words. But they are also
-# domain-sensitive. Whatever you saw here, the lesson is the same: <b>every component is a
-# hypothesis that must be measured on your data.</b> Stronger options include
-# BAAI/bge-reranker-v2-m3, biomedical rerankers, or an LLM as the reranker (expensive).
+# In our full-corpus run (T4, 300 questions) reranking the hybrid's top 50 gave the <b>best result
+# of the whole lab</b>: nDCG@10 0.633 vs 0.589 for BM25, although the cross-encoder was trained on web
+# search, not biomedicine. It reads query and document <i>together</i>, so it can judge relevance
+# much better than comparing two separate vectors. Rerankers are domain-sensitive, though, so treat
+# every component as a hypothesis to measure on your data. Stronger options: BAAI/bge-reranker-v2-m3,
+# biomedical rerankers, or an LLM as the reranker (expensive).
 # </details>
 #
 # 🤔 **Question 4.2.** Reranking can only reorder the 50 candidates. Which metric of the *first stage* therefore matters most?
@@ -351,7 +365,7 @@ lb["nDCG@10"].plot.barh(figsize=(7, 3.5), title="nDCG@10 on BioASQ questions", x
 # Let's look at documents our best system ranks in the **top 3** that the experts did **not** mark as relevant.
 
 # %%
-best = runs["Hybrid + rerank (top 50)"]
+best = reranked
 doc_text = dict(zip(ids, bio.docs))
 shown = 0
 for qid, row in zip(qids, bio.questions.itertuples()):
@@ -389,7 +403,7 @@ for qid, row in zip(qids, bio.questions.itertuples()):
 
 # %%
 runs["my experiment"] = hybrid_run(best_dense, k_rrf=20, weights=(1, 2))      # <- change me
-leaderboard(runs)
+show_lb(leaderboard(runs))
 
 # %% [markdown]
 # ---

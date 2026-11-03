@@ -1008,30 +1008,32 @@ lab(2, "Measuring & improving retrieval", 25, [
 ], "02_hybrid_rerank_eval", note="""09:40-10:05. Leaderboard challenge in the last 5 minutes: best nDCG@10 in chat.
 Discuss Part 5 (incomplete labels) together if time allows -- it's a great BioASQ story.""")
 
-y = answer("Lab 2 results: which retriever is best?", "BM25 is hard to beat here. Hybrid adds recall, not top precision.",
+y = answer("Lab 2 results: which retriever is best?", "Hybrid finds more; the reranker puts it on top.",
            note="""Real run: 300 BioASQ questions, all 40,221 abstracts, Colab T4. BM25 beats every embedding model on nDCG@10.
 Why: precise biomedical terms, and LABEL BIAS -- the experts found relevant abstracts with PubMed keyword searches, so the
 gold standard is built from what keyword search finds. PubMedBERT is the weakest: trained for title<->abstract similarity,
-not question->abstract search (domain != task). Equal-weight hybrid does not lift nDCG@10 but raises R@100 (0.62 -> 0.64),
-which is what the reranker needs. Ask the room for their best leaderboard config (e.g. weights=(2,1)).""")
+not question->abstract search (domain != task). Equal-weight hybrid does not lift nDCG@10 but raises R@100 (0.62 -> 0.63),
+which is what the reranker needs: reranking the hybrid's top 50 gives the best result, 0.633 (+0.044 over BM25), even
+with a cross-encoder trained on web search (MS MARCO). Exactly the two-stage design: recall first, precision second.
+Ask the room for their best leaderboard config (e.g. weights=(2,1)).""")
 lb = RESULTS.get("leaderboard", {})
 if lb:
     order = sorted(lb, key=lambda n: lb[n]["nDCG@10"])
     for k, n in enumerate(order):
-        yy = y + 6 + k * 42
+        yy = y + 2 + k * 37
         v = lb[n]["nDCG@10"]
-        text([M, yy + 8, 220, 20], n, 15, INK, bold=True)
+        text([M, yy + 6, 220, 20], n, 15, INK, bold=True)
         col = GREEN if n == order[-1] else (BLUE if "Hybrid" in n else MUTED)
         k_ = k
-        box([M + 230, yy, 560 * v, 34], col, preset="rect")
-        text([M + 230 + 560 * v + 10, yy + 8, 200, 20], f"{v:.3f}", 15, INK, bold=True, font=MONO)
+        box([M + 230, yy, 560 * v, 29], col, preset="rect")
+        text([M + 230 + 560 * v + 10, yy + 6, 200, 20], f"{v:.3f}", 15, INK, bold=True, font=MONO)
         if "R@100" in lb[n]:
-            text([W - M - 110, yy + 9, 110, 18], f"R@100 {lb[n]['R@100']:.2f}", 12.5, MUTED, align="right", font=MONO)
-    text([M, y + 6 + len(order) * 42 + 6, W - 2 * M, 18], "Bars: nDCG@10 · " + RESULTS.get("leaderboard_note", ""),
+            text([W - M - 110, yy + 7, 110, 18], f"R@100 {lb[n]['R@100']:.2f}", 12.5, MUTED, align="right", font=MONO)
+    text([M, y + 2 + len(order) * 37 + 4, W - 2 * M, 18], "Bars: nDCG@10 · " + RESULTS.get("leaderboard_note", ""),
          12.5, MUTED)
-    rich([M, y + 6 + len(order) * 42 + 34, W - 2 * M, 44], [
-        "**Why BM25?** Precise biomedical terms, and **label bias**: the experts found the relevant abstracts with PubMed "
-        "keyword searches. The domain model was trained for title ↔ abstract, not question → abstract."], 14, INK, spacing=1.25)
+    rich([M, y + 2 + len(order) * 37 + 28, W - 2 * M, 44], [
+        "**Alone, BM25 is hard to beat** (precise terms; and label bias: experts found the relevant abstracts with keyword "
+        "search). **Hybrid raises recall, the reranker turns it into precision: +0.044.**"], 14, INK, spacing=1.25)
 
 # ------------------------------------------------------------ GENERATION
 state["section"] = "Generation"
