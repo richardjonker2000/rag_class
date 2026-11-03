@@ -6,6 +6,7 @@
 # A RAG system can only be as good as what it retrieves. In this lab you take apart the first
 # half of the pipeline:
 #
+# 0. **The task and the data.** What are we searching, and for what?
 # 1. **Chunking.** How do we cut long documents into searchable pieces? *(news articles, MultiHop-RAG)*
 # 2. **Sparse retrieval (BM25).** Match the words. *(40k PubMed abstracts, BioASQ)*
 # 3. **Dense retrieval (embeddings).** Match the meaning. *(same corpus)*
@@ -46,14 +47,100 @@ print(f"MultiHop-RAG: {len(mh.articles)} articles | BioASQ: {len(bio.docs):,} ab
 
 # %% [markdown]
 # ---
-# ## Part A — Chunking (MultiHop-RAG news articles)
+# ## Part 0 — The task and the data
 #
-# Our news articles are long. Let's see how long.
+# **The task.** A user asks a question; somewhere in a large collection of documents is the answer. Before any LLM
+# writes anything, we must **find the right documents** (or pieces of documents). That is *retrieval*, step 2
+# of the RAG pipeline, and it is what this lab and the next are about:
+#
+# > question → **search the collection** → top-k documents → (later) LLM writes an answer from them
+#
+# We use two real datasets, each where it is strongest:
+#
+# | | BioASQ (PubMed) | MultiHop-RAG (news) |
+# |---|---|---|
+# | documents | 40,221 short biomedical abstracts | 609 long news articles (Sep–Dec 2023) |
+# | questions | real questions written by biomedical experts | questions whose answer is spread over 2–4 articles |
+# | labels | which abstracts the experts marked relevant | the exact evidence sentences in each article |
+# | used for | searching and measuring search | chunking (long documents), and agents in Lab 5 |
+#
+# Let's look at both before doing anything with them.
+
+# %% [markdown]
+# ### BioASQ: questions written by experts
+#
+# Each question comes with an expert answer and a list of abstracts the experts judged relevant.
 
 # %%
-words = mh.articles.body.str.split().str.len()
-print(words.describe().round(0))
-mh.articles[["title", "source", "published_at"]].head()
+import matplotlib.pyplot as plt
+ex = bio.questions.sample(5, random_state=4)
+for r in ex.itertuples():
+    print(f"Q: {r.question}\n   expert answer: {r.answer[:160]}{'…' if len(r.answer) > 160 else ''}"
+          f"\n   relevant abstracts: {len(r.relevant)}\n")
+
+# %% [markdown]
+# What does a relevant abstract look like?
+
+# %%
+r = ex.iloc[0]
+abstract = dict(zip(bio.doc_ids, bio.docs))[r.relevant[0]]
+print("Q:", r.question, f"\n\nPubMed ID {r.relevant[0]}:\n{abstract}")
+
+# %%
+fig, ax = plt.subplots(1, 2, figsize=(11, 3))
+pd.Series([len(d.split()) for d in bio.docs]).plot.hist(bins=50, ax=ax[0], title=f"{len(bio.docs):,} abstracts: length in words")
+bio.questions.relevant.map(len).clip(upper=40).plot.hist(bins=40, ax=ax[1],
+    title="relevant abstracts per question (capped at 40)")
+plt.tight_layout(); plt.show()
+print("median abstract length:", int(np.median([len(d.split()) for d in bio.docs])), "words")
+print("relevant abstracts per question: median", int(bio.questions.relevant.map(len).median()),
+      "| max", bio.questions.relevant.map(len).max())
+
+# %% [markdown]
+# ### MultiHop-RAG: long news articles, questions that need several of them
+
+# %%
+art = mh.articles
+words = art.body.str.split().str.len()
+fig, ax = plt.subplots(1, 3, figsize=(14, 3))
+words.clip(upper=6000).plot.hist(bins=40, ax=ax[0], title="article length in words (capped at 6,000)")
+art.category.value_counts().plot.barh(ax=ax[1], title="articles per category")
+art.source.value_counts().head(8).plot.barh(ax=ax[2], title="top 8 sources")
+plt.tight_layout(); plt.show()
+print(f"{len(art)} articles, {art.published_at.min()[:10]} to {art.published_at.max()[:10]}; "
+      f"median {int(words.median())} words, longest {words.max():,}")
+
+# %% [markdown]
+# Four kinds of questions. The evidence for one answer usually sits in **several different articles**:
+
+# %%
+print(mh.queries.question_type.value_counts().to_string(), "\n")
+for qt in ["inference_query", "comparison_query", "temporal_query", "null_query"]:
+    r = mh.queries[mh.queries.question_type == qt].iloc[0]
+    n_art = len({e["title"] for e in r.evidence})
+    print(f"[{qt}]  ({n_art} articles of evidence)\nQ: {r.query}\nA: {r.answer}\n")
+print("articles of evidence per question:",
+      mh.queries.evidence.map(lambda ev: len({e['title'] for e in ev})).value_counts().sort_index().to_dict())
+
+# %% [markdown]
+# 🤔 **Question 0.1.** Look at the questions above. What will make them hard to search for?
+#
+# <details><summary>Answer</summary>
+#
+# * **BioASQ:** very specific technical terms (gene, drug and protein names, abbreviations) and synonyms
+#   ("heart attack" vs "myocardial infarction"). Many questions have dozens of relevant abstracts.
+# * **MultiHop-RAG:** long, wordy questions that mention several sources and dates; the evidence is
+#   spread over 2–4 different articles, so one search result is rarely enough; and some questions
+#   (null queries) have **no** answer in the collection at all.
+# * **Both:** the documents never use the question's exact wording.
+# </details>
+
+# %% [markdown]
+# ---
+# ## Part A — Chunking (MultiHop-RAG news articles)
+#
+# The news articles are long (median ~1,300 words, some over 12,000). Search engines and embedding
+# models work on pieces of text, so first we have to cut them up.
 
 # %% [markdown]
 # 🤔 **Question A1.** Why not embed every article as one vector, or paste whole articles into the prompt?
