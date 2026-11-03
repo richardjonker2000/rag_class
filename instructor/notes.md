@@ -22,7 +22,15 @@ If a student's runtime dies, they can open the single-lab notebook (`0N_*.ipynb`
       `github.com/richardjonker2000/rag_class/releases/download/data-v1/<file>`.
 - [ ] Rebuild the slides if you edit them: `make -C slides` (downloads DeckCraft 0.12.0 into `slides/tools/`).
 
-## Model findings (tested 2 Nov 2026, free tier)
+## LLM: Gemma 4 on Ollama (default since 3 Nov 2026)
+
+The notebooks default to `PROVIDER = "ollama"` with `gemma4:e2b` (small) and `gemma4:e4b` (big, Lab 3 only, pulled on first
+use). No keys, no rate limits; everything runs on the student's T4. **Not yet tested end-to-end** (no Ollama on the build
+machine): check in Colab that the install cell works, how long the model download takes, answer speed, and that tool calling
+in Lab 5 works with E2B. If E2B's tool calling is too weak, set the Lab 5 model to `gemma4:e4b`. The Gemini option below
+still works (tested).
+
+## Model findings: Gemini (tested 2 Nov 2026, free tier)
 
 Free-tier limits per Google Cloud project (AI Studio → Rate Limit). Every student creates their own key and
 project, so these apply per student:

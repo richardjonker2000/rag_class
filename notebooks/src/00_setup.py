@@ -5,16 +5,16 @@
 #
 # Run this at the start of class (about 2 minutes). It
 # 1. checks that you have a **GPU** runtime,
-# 2. checks your **LLM API key**,
+# 2. starts the **LLM**: Gemma 4 (E2B), an open model running on your own Colab GPU,
 # 3. downloads all **datasets and models** used today, so later labs start fast,
 # 4. runs a small experiment: *can an LLM cite its sources from memory?*
 #
 # **Before you start:** *Runtime → Change runtime type → T4 GPU.*
 #
-# **API key (free):** create one at https://aistudio.google.com/apikey, then in Colab click 🔑
-# (*Secrets*, left sidebar) → *Add new secret* → name `GEMINI_API_KEY`, paste the key, and switch
-# on *Notebook access*. No Google account or key? Choose `PROVIDER = "ollama"` below to run an
-# open model locally on the Colab GPU instead.
+# **The LLM:** by default we run **Gemma 4 E2B**, an open model, on your Colab GPU with Ollama.
+# No account or API key needed. The first run downloads the model (about 5 GB, 1–3 minutes).
+# Optional: choose `PROVIDER = "gemini"` to use Google's hosted models instead (needs a free key from
+# https://aistudio.google.com/apikey, stored in Colab 🔑 *Secrets* as `GEMINI_API_KEY`).
 
 # %%
 # @title 1 · Course code and GPU check
@@ -46,12 +46,12 @@ if USE_DRIVE:
     print("Cache:", os.environ["RAGCLASS_CACHE"])
 
 # %%
-# @title 3 · LLM key check
-PROVIDER = "gemini"  # @param ["gemini", "ollama", "openai"]
+# @title 3 · Start the LLM (first time: downloads Gemma 4 E2B, 1-3 min)
+PROVIDER = "ollama"  # @param ["ollama", "gemini", "openai"]
 from ragclass import llm
 llm.setup(os.environ.get("RAGCLASS_LLM", PROVIDER))
 print("model says:", llm.ask("Reply with exactly: ready"))
-# (the big model is only used in Lab 3: its free tier allows just 20 requests per day)
+# (the bigger model, Gemma 4 E4B, is only used in Lab 3 and downloads when first needed)
 
 # %%
 # @title 4 · Download all datasets and models (~1-2 min)

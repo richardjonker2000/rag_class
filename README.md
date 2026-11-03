@@ -29,10 +29,10 @@ what it needs. Downloads are cached, retried and verified (`ragclass/data.py`).
 
 ### LLM access
 
-Default: **Gemini** via its OpenAI-compatible API. Get a free key at <https://aistudio.google.com/apikey> and
-add it in Colab under 🔑 *Secrets* as `GEMINI_API_KEY` (enable notebook access). Alternatives (dropdown in each
-notebook): `ollama` (an open model running on the Colab GPU, no key) or `openai` (any OpenAI key). The model
-names are in `ragclass/llm.py` (`PROVIDERS`).
+Default: **Gemma 4 E2B** (and E4B as the "bigger" model in Lab 3), open models running on the student's own Colab
+GPU via **Ollama**. No account or API key needed; the first run downloads the model (~5 GB, 1–3 minutes).
+Alternatives (dropdown in each notebook): `gemini` (free key from <https://aistudio.google.com/apikey>, stored in
+Colab 🔑 *Secrets* as `GEMINI_API_KEY`) or `openai`. Model names are in `ragclass/llm.py` (`PROVIDERS`).
 
 ## Repository
 

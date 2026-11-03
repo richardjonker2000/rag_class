@@ -3,8 +3,8 @@ code works with Gemini (default, free key from Google AI Studio), a local model 
 inside Colab, or any other OpenAI-compatible provider.
 
     from ragclass import llm
-    llm.setup()                       # Gemini; reads GEMINI_API_KEY from Colab secrets / env / prompt
-    llm.setup("ollama")               # local model on the Colab GPU (installs and starts Ollama)
+    llm.setup()                       # default: Gemma 4 E2B on the Colab GPU via Ollama (no key needed)
+    llm.setup("gemini")               # Gemini; reads GEMINI_API_KEY from Colab secrets / env / prompt
     llm.ask("Say hi")                 # -> str
     llm.chat(messages, tools=[...])   # -> full assistant message (for tool calling)
 """
@@ -19,13 +19,13 @@ PROVIDERS = {
                "model": "gemini-3.5-flash-lite", "big_model": "gemini-3.6-flash", "key": "GEMINI_API_KEY",
                # free tier per project (Nov 2026): flash-lite 15 RPM / 500 per day; flash 5 RPM / 20 per day
                "rpm": 14, "big_rpm": 4},
-    "ollama": {"base_url": "http://localhost:11434/v1", "model": "qwen3:4b", "big_model": "qwen3:8b",
+    "ollama": {"base_url": "http://localhost:11434/v1", "model": "gemma4:e2b", "big_model": "gemma4:e4b",
                "key": None},
     "openai": {"base_url": None, "model": "gpt-5-mini", "big_model": "gpt-5", "key": "OPENAI_API_KEY"},
 }
 
 _state = {"client": None, "provider": None, "model": None, "big_model": None, "min_interval": 0.0,
-          "big_interval": 0.0, "last_call": {}, "usage": {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}}
+          "big_interval": 0.0, "last_call": {}, "pulled": set(), "usage": {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}}
 
 
 def _get_key(name: str) -> str:
@@ -42,7 +42,7 @@ def _get_key(name: str) -> str:
     return getpass(f"Paste your {name} (input hidden): ").strip()
 
 
-def setup(provider: str = "gemini", model: str | None = None, big_model: str | None = None,
+def setup(provider: str = "ollama", model: str | None = None, big_model: str | None = None,
           api_key: str | None = None, base_url: str | None = None, rpm: float | None = None) -> None:
     """Choose the provider. `rpm` spaces out calls to stay under a requests-per-minute limit."""
     from openai import OpenAI
@@ -83,6 +83,8 @@ def chat(messages: list[dict], tools: list[dict] | None = None, model: str | Non
     if max_tokens:
         args["max_tokens"] = max_tokens
     m = args["model"]
+    if _state["provider"] == "ollama" and m not in _state["pulled"]:
+        start_ollama([m])                 # e.g. the big model: downloaded the first time it is used
     interval = _state["big_interval"] if m == _state["big_model"] else _state["min_interval"]
     for attempt in range(retries):
         wait = interval - (time.time() - _state["last_call"].get(m, 0.0))
@@ -144,8 +146,11 @@ def start_ollama(models: list[str]) -> None:
             except Exception:  # noqa: BLE001
                 time.sleep(1)
     for m in models:
-        print(f"Pulling {m} (first time only, a few minutes)...")
-        subprocess.run(["ollama", "pull", m], check=True, stdout=subprocess.DEVNULL)
+        if m in _state["pulled"]:
+            continue
+        print(f"Getting model {m} (first time: a few GB, 1-3 minutes on Colab)...")
+        subprocess.run(["ollama", "pull", m], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        _state["pulled"].add(m)
 
 
 class _FakeClient:

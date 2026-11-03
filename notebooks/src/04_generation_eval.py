@@ -12,7 +12,7 @@
 #    **human labels** on real LLM answers (RAGTruth).
 # 3. **You are the judge:** label answers yourself and compare with the human annotators and with your neighbour.
 #
-# Needs an LLM (same setup as Lab 3). About 60 LLM calls in total.
+# Needs an LLM (default: Gemma 4 E2B on your Colab GPU, same as Lab 3). About 60 LLM calls in total.
 
 # %%
 # @title Setup (run me first)
@@ -34,7 +34,7 @@ from IPython.display import display, Markdown
 pd.set_option("display.max_colwidth", 300)
 GPU = torch.cuda.is_available()
 
-PROVIDER = "gemini"  # @param ["gemini", "ollama", "openai"]
+PROVIDER = "ollama"  # @param ["ollama", "gemini", "openai"]
 from ragclass import llm
 llm.setup(os.environ.get("RAGCLASS_LLM", PROVIDER))
 

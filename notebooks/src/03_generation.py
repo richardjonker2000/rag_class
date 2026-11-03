@@ -11,9 +11,9 @@
 # 2. The experiment: **{no retrieval, weak retrieval, good retrieval} × {small model, big model}**.
 # 3. *(Stretch)* Lost in the middle: does the *position* of the evidence matter?
 #
-# Needs an LLM. Default: **Gemini** with a free key from https://aistudio.google.com/apikey. Add it
-# in Colab under 🔑 *Secrets* as `GEMINI_API_KEY` and enable notebook access.
-# No key? Set `PROVIDER = "ollama"` to run a local model on the Colab GPU (slower).
+# Needs an LLM. Default: **Gemma 4 E2B** (small) and **Gemma 4 E4B** (bigger), open models running on your
+# Colab GPU via Ollama, no key needed. Optional: `PROVIDER = "gemini"` with a free key from
+# https://aistudio.google.com/apikey in Colab 🔑 *Secrets* as `GEMINI_API_KEY`.
 
 # %%
 # @title Setup (run me first): code, data, LLM, retriever (~1-2 min)
@@ -34,7 +34,7 @@ import numpy as np, pandas as pd, torch
 pd.set_option("display.max_colwidth", 400)
 GPU = torch.cuda.is_available()
 
-PROVIDER = "gemini"  # @param ["gemini", "ollama", "openai"]
+PROVIDER = "ollama"  # @param ["ollama", "gemini", "openai"]
 from ragclass import llm
 llm.setup(os.environ.get("RAGCLASS_LLM", PROVIDER))
 
@@ -132,13 +132,14 @@ for r in bio.questions.itertuples():
         break
 print(f"{len(picked)} questions selected")
 
-# The bigger model has a small free quota (Gemini: 20 requests/day). 12 calls fit, but if you want to rerun
-# this cell many times, switch it off and compare retrieval conditions with the small model only.
+# The bigger model is slower (and on Gemini's free tier limited to 20 requests/day). Switch it off to rerun
+# this cell quickly with the small model only.
 USE_BIG_MODEL = True  # @param {type:"boolean"}
 results = []
-for r in picked:
-    weak, good = retrieve_weak(r.question), retrieve_good(r.question)
-    for model_name, model in [("small", llm.small())] + ([("big", llm.big())] if USE_BIG_MODEL else []):
+docs_for = {r.question: (retrieve_weak(r.question), retrieve_good(r.question)) for r in picked}
+for model_name, model in [("small", llm.small())] + ([("big", llm.big())] if USE_BIG_MODEL else []):
+    for r in picked:                      # one model at a time: no swapping models in and out of GPU memory
+        weak, good = docs_for[r.question]
         results.append(dict(question=r.question, model=model_name, condition="1 no retrieval",
                             answer=closed_book(r.question, model)))
         results.append(dict(question=r.question, model=model_name, condition="2 weak retrieval",

@@ -14,7 +14,7 @@
 # 6. **Evaluating agents:** answer accuracy, steps and cost.
 #
 # Retrieval is just **one tool among several**: our news search over MultiHop-RAG, plus real
-# Wikipedia, real weather (Open-Meteo) and a Python calculator. Needs an LLM (same setup as Lab 3).
+# Wikipedia, real weather (Open-Meteo) and a Python calculator. Needs an LLM (default: Gemma 4 E2B on your Colab GPU, same as Lab 3).
 
 # %%
 # @title Setup (run me first): code, data, LLM, news retriever (~1 min)
@@ -35,7 +35,7 @@ import contextlib, io, json, re, time, urllib.parse, urllib.request
 import numpy as np, pandas as pd
 from IPython.display import display
 
-PROVIDER = "gemini"  # @param ["gemini", "ollama", "openai"]
+PROVIDER = "ollama"  # @param ["ollama", "gemini", "openai"]
 from ragclass import llm
 llm.setup(os.environ.get("RAGCLASS_LLM", PROVIDER))
 
