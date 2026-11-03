@@ -160,12 +160,17 @@ leaderboard(runs)
 # 🤔 **Question 2.1.** Rank the systems. Does a general embedding model beat BM25? Does a *domain-specific* one? What would you try next if this were your company's data?
 #
 # <details><summary>Answer</summary>
-# On this corpus, BM25 is a very strong baseline. General small embedding models are below it
-# or close to it, and the stronger and biomedical models close the gap. Model choice matters,
-# but <b>domain match</b> matters more than size. On your own data you would build a small
-# labelled set first (even 50–100 queries), then compare BM25, a few embedding models from the
-# MTEB leaderboard, and hybrids. Fine-tuning an embedding model on in-domain pairs is the next
-# step after that.
+# In our full-corpus run (T4, 40k abstracts) <b>BM25 beat every embedding model</b> (nDCG@10 0.59
+# vs 0.57 BGE-small, 0.47 MiniLM, 0.44 PubMedBERT). Why?
+#
+# * BioASQ questions use precise terms (genes, drugs, diseases), which is exactly what keyword match rewards.
+# * <b>Label bias:</b> the experts found their relevant abstracts with PubMed <i>keyword</i> searches. The gold
+#   standard is built from what keyword search finds, so a dense model that finds other relevant abstracts gets no credit.
+# * The "biomedical" model was the weakest: being trained on PubMed text (matching titles to abstracts) is
+#   not the same as being trained for <i>question → document</i> search. Domain ≠ task.
+#
+# On your own data: build a small labelled set first (even 50–100 real queries), then compare BM25, a few
+# retrieval models from the MTEB leaderboard (look at the <i>retrieval</i> column), and hybrids.
 # </details>
 #
 # 🤔 **Question 2.2.** Is a difference of 0.01 nDCG@10 real, or noise from *which* 300 questions we happened to pick?
@@ -194,7 +199,8 @@ print(f"{b} better on {(per[b] > per[a]).sum()} questions, worse on {(per[b] < p
 # $$\text{RRF}(d) = \sum_{\text{systems}} \frac{1}{k + \text{rank}(d)}, \qquad k = 60$$
 
 # %%
-best_dense = list(dense_models)[-1]
+best_dense = max(dense_models, key=lambda n: M.evaluate(runs[n], qrels)["nDCG@10"])   # the best dense model
+print("best dense model:", best_dense)
 def hybrid_run(dense_name, k_rrf=60, weights=(1, 1)):
     res = dense[dense_name].search_many(questions, K)
     out = {}
@@ -205,6 +211,7 @@ def hybrid_run(dense_name, k_rrf=60, weights=(1, 1)):
     return out
 
 runs[f"Hybrid: BM25 + {best_dense}"] = hybrid_run(best_dense)
+runs[f"Hybrid: 2×BM25 + {best_dense}"] = hybrid_run(best_dense, weights=(2, 1))   # trust BM25 more
 runs["Hybrid: BM25 + MiniLM"] = hybrid_run("MiniLM (general, small)")
 leaderboard(runs)
 
@@ -254,11 +261,20 @@ print("Biggest loss for hybrid:", bio.questions.set_index("qid").question[diff.i
 # Search uses it for every hybrid query), next to normalised score fusion.
 # </details>
 #
-# 🤔 **Question 3.2.** Combining a *weak* dense model with BM25 still helps. Why can two imperfect systems beat the better one?
+# 🤔 **Question 3.2.** Did hybrid beat BM25? Compare nDCG@10 (the top of the ranking) with R@100 (the long list). When does fusion help, and when not?
 #
 # <details><summary>Answer</summary>
-# Their errors are not correlated. BM25 finds exact entities, dense finds paraphrases, and a
-# document ranked high by both is very likely relevant. That is the same reason ensembles work in ML.
+#
+# In our full-corpus run, equal-weight hybrid did <b>not</b> beat BM25 on nDCG@10 (0.584 vs 0.589), but it
+# <b>raised R@100</b> (0.636 vs 0.619): fusion brings in relevant documents that only one system finds,
+# while at the very top a much weaker partner adds noise.
+#
+# * Fusion helps most when both systems are good and make <i>different</i> mistakes (ensembles).
+# * If one system is much weaker, give it less weight (try `weights=(2, 1)`) or leave it out.
+# * Higher R@100 still matters: the reranker in Part 4 can only reorder what the first stage found.
+# * And remember the label bias: the gold labels came from keyword search, which flatters BM25.
+#
+# "Hybrid always wins" is a rule of thumb, not a law. Measure it on your data.
 # </details>
 
 # %% [markdown]

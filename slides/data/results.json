@@ -30,22 +30,31 @@
  },
  "leaderboard": {
   "BM25": {
-   "nDCG@10": 0.666
-  },
-  "MiniLM": {
-   "nDCG@10": 0.574
-  },
-  "BGE-small": {
-   "nDCG@10": 0.663
+   "nDCG@10": 0.589,
+   "R@100": 0.619
   },
   "Hybrid (BM25 + MiniLM)": {
-   "nDCG@10": 0.672
+   "nDCG@10": 0.584,
+   "R@100": 0.636
   },
-  "Hybrid (BM25 + BGE)": {
-   "nDCG@10": 0.693
+  "BGE-small": {
+   "nDCG@10": 0.568,
+   "R@100": 0.618
+  },
+  "Hybrid (BM25 + PubMedBERT)": {
+   "nDCG@10": 0.567,
+   "R@100": 0.632
+  },
+  "MiniLM": {
+   "nDCG@10": 0.47,
+   "R@100": 0.581
+  },
+  "PubMedBERT": {
+   "nDCG@10": 0.439,
+   "R@100": 0.554
   }
  },
- "leaderboard_note": "300 BioASQ questions, 10,000-abstract subset (CPU test run, 2 Nov 2026)",
+ "leaderboard_note": "300 BioASQ questions, all 40,221 abstracts, Colab T4 run (3 Nov 2026)",
  "lab3_grid": [
   {
    "question": "What is etarfolatide used for?",
