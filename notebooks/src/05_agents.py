@@ -151,11 +151,11 @@ def approve(action):
         return False
     return input(f"\n⚠️  Agent wants to {action}. Allow? [y/N] ").strip().lower() == "y"
 
-def tool(fn, description, **params):
-    """Bundle a function with the JSON schema the LLM sees."""
+def tool(fn, description, name=None, **params):
+    """Bundle a function with the JSON schema the LLM sees (name, description, parameters)."""
     props = {p: {"type": t, "description": d} for p, (t, d) in params.items()}
     return {"fn": fn, "schema": {"type": "function", "function": {
-        "name": fn.__name__, "description": description,
+        "name": name or fn.__name__, "description": description,
         "parameters": {"type": "object", "properties": props, "required": list(params)}}}}
 
 TOOLS = {t["schema"]["function"]["name"]: t for t in [
@@ -272,19 +272,39 @@ run_agent(nq.query);
 # ---
 # ## Part 4 — Tool descriptions are prompts
 #
-# The model chooses tools *only* from their names and descriptions. Let's make the news tool's description useless:
+# The model never sees your Python code: it chooses tools **only** from their names and descriptions.
+#
+# **Experiment 1: swap the descriptions.** The news tool gets Wikipedia's description, and Wikipedia gets
+# the news archive's. Same functions, same names, only the text changes. Which tool does the agent call now?
 
 # %%
-bad = dict(TOOLS)
-bad["search_news"] = tool(search_news, "Utility function.", query=("string", "input"))
-run_agent(q.query, tools=bad);
+NEWS_DESC = TOOLS["search_news"]["schema"]["function"]["description"]
+WIKI_DESC = TOOLS["wikipedia"]["schema"]["function"]["description"]
+swapped = dict(TOOLS)
+swapped["search_news"] = tool(search_news, WIKI_DESC, query=("string", "topic to look up"))
+swapped["wikipedia"] = tool(wikipedia, NEWS_DESC, query=("string", "what to search for"))
+run_agent(q.query, tools=swapped);
 
 # %% [markdown]
-# 🤔 **Question 4.1.** What changed? What makes a good tool description?
+# **Experiment 2: an opaque name and a useless description.** The news tool is now called `util_7`
+# and described as "Utility function." Does the agent still find the news archive?
+
+# %%
+opaque = {k: v for k, v in TOOLS.items() if k != "search_news"}
+opaque["util_7"] = tool(search_news, "Utility function.", name="util_7", query=("string", "input"))
+run_agent(q.query, tools=opaque);
+
+# %% [markdown]
+# 🤔 **Question 4.1.** What changed in each experiment? (Earlier versions of this lab only replaced the description with "Not implemented.": the agent still used `search_news`. Why?)
 #
 # <details><summary>Answer</summary>
-# With a vague description the agent often ignores the tool, uses Wikipedia instead (wrong
-# source) or answers from memory. Good descriptions say <i>what data</i> the tool covers (and
+# With swapped descriptions the agent typically calls <code>wikipedia</code> for the news question (it
+# now <i>says</i> it is the news archive) and gets the wrong source. With an opaque name and a useless
+# description it usually ignores the news tool and falls back to Wikipedia or its own memory. A
+# descriptive <b>name</b> alone ("search_news", plus a question that mentions news outlets) is often
+# enough for a good model to guess right, which is why changing only the description did little.
+# Watch the step counts too: in our test the opaque tool was only tried at step 5, after four rounds of
+# useless Wikipedia searches. Bad tool descriptions cost <b>time and money</b>, not just answer quality. Good descriptions say <i>what data</i> the tool covers (and
 # what not), <i>when</i> to use it, what it returns, and give argument hints. Tool design is
 # prompt engineering: names, descriptions, error messages and the size of the outputs all
 # steer the agent. The same applies to MCP servers, which are a standard way to expose tools
