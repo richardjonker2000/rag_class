@@ -1,0 +1,16 @@
+# Preinstalled on Colab; for running the notebooks locally.
+sentence-transformers>=3
+torch
+openai>=1.40
+pandas
+numpy
+scipy
+scikit-learn
+matplotlib
+tqdm
+pyarrow
+ipython
+# build/testing only
+jupytext
+nbclient
+ipykernel

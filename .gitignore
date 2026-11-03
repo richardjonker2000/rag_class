@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+notebooks/_executed/
+slides/tools/
+.ipynb_checkpoints/
+gemini_api_key
+slides/out/png/
+slides/out/eq/
+slides/out/*.deckcraft
