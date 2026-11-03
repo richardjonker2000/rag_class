@@ -57,9 +57,15 @@ print(f"{len(bio.docs):,} abstracts, {len(qids)} labelled questions")
 # One query, BM25's top 10, and the expert labels:
 
 # %%
-q = bio.questions.iloc[7]
-rel = set(q.relevant)
-ranked = ids[bm25.search(q.question, 100)[0]].tolist()
+# pick an instructive question: the first hit is not at #1, and the top 5 mixes hits and misses
+def _pick(strict):
+    for q in bio.questions.itertuples():
+        rel = set(q.relevant)
+        ranked = ids[bm25.search(q.question, 100)[0]].tolist()
+        top5 = [d in rel for d in ranked[:5]]
+        if (not top5[0] and 2 <= sum(top5) <= 3 and len(rel) >= 6) if strict else (1 <= sum(top5) <= 4):
+            return q, rel, ranked
+q, rel, ranked = _pick(strict=True) or _pick(strict=False)
 print("Q:", q.question, f"\n{len(rel)} relevant documents in total\n")
 for r, d in enumerate(ranked[:10], 1):
     print(f"{r:2d}. {'✅ relevant' if d in rel else '   -'}")
@@ -76,6 +82,8 @@ for name, fn in [("P@5", lambda: M.precision_at_k(ranked, rel, 5)),
                  ("AP@100", lambda: M.average_precision(ranked, rel, 100)),
                  ("nDCG@10", lambda: M.ndcg_at_k(ranked, rel, 10))]:
     print(f"{name:20s} {fn():.3f}")
+print(f"\nNote: with {len(rel)} relevant documents, even a perfect ranking only reaches "
+      f"R@5 = {min(5, len(rel)) / len(rel):.3f} and R@10 = {min(10, len(rel)) / len(rel):.3f}.")
 
 # %% [markdown]
 # Each metric is a few lines of code. Read nDCG and average precision:
