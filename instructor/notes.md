@@ -101,9 +101,12 @@ At 14 RPM the waiting is noticeable in Lab 4 (~4 min) and Lab 5 Part 6 (~5 min).
   answer + invented claim F1 0.78 / embedding 0.90 / LLM judge **1.0**. The judge catches negation but not an added claim.
 - **RAGTruth detectors (Lab 4):** at default thresholds lexical and NLI flag almost everything (recall 1.0); the sweep
   cell shows the trade-off. Quick run (12 items): LLM judge accuracy 0.75, lexical 0.75, NLI 0.58.
+- **Agents with Gemma 4 E2B (your Colab run):** closed-book 0.00, workflow 0.62, agent 0.75 (~2 LLM calls per question).
+  Gemma doesn't know the 2023 stories (or says it can't access them), so the tools clearly matter.
 - **Agents (Lab 5, real Gemini):** multi-step tool use works (weather + Python, Wikipedia + Python). On a null question
-  the agent searched 8 times and hit the step limit, a nice live example of looping. The injection was ignored in our run;
-  run it a few times. Evaluation on 8 questions: closed-book 0.75, agent 0.62, workflow 0.50; the agent loops on
+  the agent searched 8 times and hit the step limit, a nice live example of looping. Injection: the obvious hidden-comment attack was ignored every time (Gemini and Gemma),
+  so Part 5 now contrasts it with a plausible spoofed e-mail; with the "autonomous" system prompt Gemma 4 E2B sent the
+  summary to the attacker's address 3/3 (default prompt: 0/3). Tell students to answer N at the approval prompt. Evaluation on 8 questions: closed-book 0.75, agent 0.62, workflow 0.50; the agent loops on
   unanswerable questions, while the workflow says "insufficient". Discuss Question 6.1 (the model already knows 2023 news).
 
 ## If things go wrong
