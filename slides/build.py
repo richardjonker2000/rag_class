@@ -800,9 +800,10 @@ table(M, y + 6, [240, 304, 304], [
     ["Strong on", "names, IDs, codes, rare terms", "paraphrases, synonyms, vague questions"],
     ["Weak on", "vocabulary mismatch", "identifiers, negation, new domains"],
     ["Needs", "nothing (no training)", "a model that fits your domain"],
+    ["Trainable?", "no: a fixed formula (tune k1, b)", "yes: fine-tune on (question, relevant doc) pairs"],
     ["Explainable", "yes (per-term scores)", "hardly"],
-], size=14, row_h=40, colors={(2, 1): GREEN, (2, 2): GREEN, (3, 1): RED, (3, 2): RED})
-text([M, y + 270, W - 2 * M, 40], "Which one is better on your data? → you have to measure it (after the lab).",
+], size=14, row_h=40, colors={(2, 1): GREEN, (2, 2): GREEN, (3, 1): RED, (3, 2): RED, (5, 2): GREEN})
+text([M, y + 315, W - 2 * M, 40], "Which one is better on your data? → you have to measure it (after the lab).",
      17, BLUE, bold=True)
 
 lab(1, "Retrieval basics", 25, [
