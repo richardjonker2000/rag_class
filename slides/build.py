@@ -913,12 +913,16 @@ for k, (nm, col, rr, nd) in enumerate([("A", BLUE, "1/1 = 1.00", "1.39 / 2.56 = 
     yy = y + 6 + k * 92
     text([440, yy, 460, 20], f"RR      = {rr}", 16, col, bold=True, font=MONO)
     text([440, yy + 26, 460, 20], f"nDCG@5  = {nd}", 16, col, bold=True, font=MONO)
-text([M + 100, y + 182, 500, 16], "gain of a hit at position i:  1 / log₂(i + 1)", 12, MUTED)
-box([M, y + 198, W - 2 * M, 132], CARD, line=RULE, preset="roundRect")
-wm, _ = eq(r"\mathrm{MRR}=\frac{1}{|Q|}\sum_{q\in Q}\frac{1}{\mathrm{rank}_q}", M + 20, y + 206, size=19)
-wd, _ = eq(r"\mathrm{DCG@}k=\sum_{i=1}^{k}\frac{\mathrm{rel}_i}{\log_2(i+1)}", M + 20 + wm + 50, y + 204, size=19)
-eq(r"\mathrm{nDCG@}k=\frac{\mathrm{DCG@}k}{\mathrm{IDCG@}k}", M + 20 + wm + 50 + wd + 50, y + 208, size=19)
-rich([M + 20, y + 280, W - 2 * M - 40, 50], [
+text([M + 100, y + 180, 500, 16], "gain of a hit at position i:  1 / log₂(i + 1)", 12, MUTED)
+box([M, y + 198, W - 2 * M, 156], CARD, line=RULE, preset="roundRect")
+wm, _ = eq(r"\mathrm{MRR}=\frac{1}{|Q|}\sum_{q\in Q}\frac{1}{\mathrm{rank}_q}", M + 20, y + 214, size=19)
+wd, _ = eq(r"\mathrm{DCG@}k=\sum_{i=1}^{k}\frac{\mathrm{rel}_i}{\log_2(i+1)}", M + 20 + wm + 50, y + 212, size=19)
+eq(r"\mathrm{nDCG@}k=\frac{\mathrm{DCG@}k}{\mathrm{IDCG@}k}", M + 20 + wm + 50 + wd + 50, y + 216, size=19)
+x_d, x_n = M + 20 + wm + 50, M + 20 + wm + 50 + wd + 50
+text([M + 20, y + 266, wm + 40, 34], "how high is the first useful result? (averaged over all questions)", 12.5, INK)
+text([x_d, y + 266, wd + 40, 34], "every hit counts, but a hit lower in the list counts less", 12.5, INK)
+text([x_n, y + 266, W - M - x_n - 16, 34], "DCG ÷ best possible DCG: 0 to 1, comparable across questions", 12.5, INK)
+rich([M + 20, y + 304, W - 2 * M - 40, 50], [
     "**where** rank_q = position of the first relevant result for query q (RR = 1/rank for one query) · rel_i = 1 if result i "
     "is relevant (or a grade) · IDCG = DCG of the best possible ranking: here 1 + 0.63 + 0.50 + 0.43 = 2.56"],
     12.5, MUTED, spacing=1.2)
