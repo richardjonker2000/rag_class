@@ -905,26 +905,35 @@ y = answer("Does the position of the hits matter?", "Rank-aware metrics: A wins 
            note="""MRR: 1 / rank of the first relevant result -- the right metric when one good result is enough (search box,
 factoid QA). nDCG: every hit earns a gain that shrinks with rank (1/log2(rank+1)): 1.00, 0.63, 0.50, 0.43, 0.39.
 Sum them (DCG) and divide by the best possible DCG (all 4 relevant at the top: 1+0.63+0.50+0.43 = 2.56).
-A: (1.00 + 0.39)/2.56 = 0.54. B: (0.63 + 0.50 + 0.43)/2.56 = 0.61. nDCG@10 is the leaderboard default (BEIR, MTEB).""")
+A: (1.00 + 0.39)/2.56 = 0.54. B: (0.63 + 0.50 + 0.43)/2.56 = 0.61. AP: at every hit, take the precision so far
+(A: 1/1 at #1, 2/5 at #5; B: 1/2, 2/3, 3/4), sum, divide by all relevant docs (4); missed docs count as 0.
+A = 0.35, B = 0.48. MAP = mean AP over questions, the classic TREC metric; it rewards finding ALL relevant docs early. nDCG@10 is the leaderboard default (BEIR, MTEB).""")
 ranking_row(M, y + 4, "A", A_RANK, BLUE, gains=True)
 ranking_row(M, y + 96, "B", B_RANK, PURPLE, gains=True)
-for k, (nm, col, rr, nd) in enumerate([("A", BLUE, "1/1 = 1.00", "1.39 / 2.56 = 0.54"),
-                                       ("B", PURPLE, "1/2 = 0.50", "1.56 / 2.56 = 0.61")]):
-    yy = y + 6 + k * 92
-    text([440, yy, 460, 20], f"RR      = {rr}", 16, col, bold=True, font=MONO)
-    text([440, yy + 26, 460, 20], f"nDCG@5  = {nd}", 16, col, bold=True, font=MONO)
+for k, (nm, col, rr, nd, ap) in enumerate([("A", BLUE, "1/1 = 1.00", "1.39 / 2.56 = 0.54", "(1/1 + 2/5) / 4 = 0.35"),
+                                           ("B", PURPLE, "1/2 = 0.50", "1.56 / 2.56 = 0.61",
+                                            "(1/2 + 2/3 + 3/4) / 4 = 0.48")]):
+    yy = y - 4 + k * 92
+    text([440, yy, 460, 20], f"RR      = {rr}", 15, col, bold=True, font=MONO)
+    text([440, yy + 24, 460, 20], f"nDCG@5  = {nd}", 15, col, bold=True, font=MONO)
+    text([440, yy + 48, 460, 20], f"AP      = {ap}", 15, col, bold=True, font=MONO)
 text([M + 100, y + 180, 500, 16], "gain of a hit at position i:  1 / log₂(i + 1)", 12, MUTED)
 box([M, y + 198, W - 2 * M, 156], CARD, line=RULE, preset="roundRect")
-wm, _ = eq(r"\mathrm{MRR}=\frac{1}{|Q|}\sum_{q\in Q}\frac{1}{\mathrm{rank}_q}", M + 20, y + 214, size=19)
-wd, _ = eq(r"\mathrm{DCG@}k=\sum_{i=1}^{k}\frac{\mathrm{rel}_i}{\log_2(i+1)}", M + 20 + wm + 50, y + 212, size=19)
-eq(r"\mathrm{nDCG@}k=\frac{\mathrm{DCG@}k}{\mathrm{IDCG@}k}", M + 20 + wm + 50 + wd + 50, y + 216, size=19)
-x_d, x_n = M + 20 + wm + 50, M + 20 + wm + 50 + wd + 50
-text([M + 20, y + 266, wm + 40, 34], "how high is the first useful result? (averaged over all questions)", 12.5, INK)
-text([x_d, y + 266, wd + 40, 34], "every hit counts, but a hit lower in the list counts less", 12.5, INK)
-text([x_n, y + 266, W - M - x_n - 16, 34], "DCG ÷ best possible DCG: 0 to 1, comparable across questions", 12.5, INK)
+G = 34
+wm, _ = eq(r"\mathrm{MRR}=\frac{1}{|Q|}\sum_{q\in Q}\frac{1}{\mathrm{rank}_q}", M + 16, y + 214, size=17)
+x_d = M + 16 + wm + G
+wd, _ = eq(r"\mathrm{DCG@}k=\sum_{i=1}^{k}\frac{\mathrm{rel}_i}{\log_2(i+1)}", x_d, y + 212, size=17)
+x_n = x_d + wd + G
+wn, _ = eq(r"\mathrm{nDCG@}k=\frac{\mathrm{DCG@}k}{\mathrm{IDCG@}k}", x_n, y + 216, size=17)
+x_a = x_n + wn + G
+eq(r"\mathrm{AP}=\frac{1}{|\mathrm{Rel}|}\sum_{i\,\in\,\mathrm{hits}}P@i", x_a, y + 214, size=17)
+text([M + 16, y + 266, wm + 24, 34], "how high is the first useful result? (mean over questions)", 11.5, INK)
+text([x_d, y + 266, wd + 24, 34], "every hit counts, but a hit lower in the list counts less", 11.5, INK)
+text([x_n, y + 266, wn + 24, 34], "DCG ÷ best possible DCG: 0 to 1, comparable across questions", 11.5, INK)
+text([x_a, y + 266, W - M - x_a - 12, 34], "precision at each hit, averaged; MAP = mean over questions", 11.5, INK)
 rich([M + 20, y + 304, W - 2 * M - 40, 50], [
-    "**where** rank_q = position of the first relevant result for query q (RR = 1/rank for one query) · rel_i = 1 if result i "
-    "is relevant (or a grade) · IDCG = DCG of the best possible ranking: here 1 + 0.63 + 0.50 + 0.43 = 2.56"],
+    "**where** rank_q = position of the first relevant result for question q · rel_i = 1 if result i is relevant · "
+    "IDCG = DCG of the ideal order (1 + 0.63 + 0.50 + 0.43 = 2.56) · hits = positions holding a relevant doc · Rel = all relevant docs (4)"],
     12.5, MUTED, spacing=1.2)
 
 # --- summary: which metric for what
@@ -940,11 +949,7 @@ table(M, y + 4, [170, 330, 90, 90, 168], [
     ["nDCG@k", "order matters; graded relevance", "0.54", "0.61", "BEIR / MTEB leaderboards"],
     ["AP  (→ MAP)", "precision at every relevant result", "0.35", "0.48", "classic TREC evaluation"],
 ], size=14, row_h=34, colors={(1, 2): GREEN, (2, 2): GREEN, (3, 3): GREEN, (4, 3): GREEN, (5, 3): GREEN, (6, 3): GREEN})
-eq(r"\mathrm{AP}=\frac{1}{|\mathrm{Rel}|}\sum_{k\,\in\,\mathrm{hits}}P@k", M, y + 242, size=16)
-text([M + 230, y + 248, W - 2 * M - 230, 34], "precision at each position k that holds a hit, averaged over all relevant docs. "
-     "A = (1/1 + 2/5) / 4 = 0.35;  B = (1/2 + 2/3 + 3/4) / 4 = 0.48. Averaged over queries: RR → MRR, AP → MAP.",
-     12, MUTED, spacing=1.2)
-text([M, y + 290, W - 2 * M, 30], "“Better” depends on the job. Pick the metric before you compare systems.", 17, BLUE, bold=True)
+text([M, y + 262, W - 2 * M, 30], "“Better” depends on the job. Pick the metric before you compare systems.", 17, BLUE, bold=True)
 
 # ------------------------------------------------------------ RETRIEVAL II
 section("02", "Better retrieval", "Hybrid search · reranking", "09:30 – 10:05",
