@@ -8,11 +8,10 @@
 #
 # 1. **Reference-based** metrics (exact match, token F1, ROUGE-L, embedding similarity,
 #    LLM-judge correctness) against BioASQ expert answers, plus a **stress test**.
-# 2. **Reference-free** hallucination detection (lexical overlap, NLI, LLM-as-judge) against
-#    **human labels** on real LLM answers (RAGTruth).
-# 3. **You are the judge:** label answers yourself and compare with the human annotators and with your neighbour.
+# 2. **You are the judge:** label real LLM answers (RAGTruth) for hallucinations yourself, and compare
+#    with the human annotators, your neighbour and an LLM judge.
 #
-# Needs an LLM (default: Gemma 4 E2B on your Colab GPU, same as Lab 3). About 60 LLM calls in total.
+# Needs an LLM (default: Gemma 4 E2B on your Colab GPU, same as Lab 3). About 25 LLM calls in total.
 
 # %%
 # @title Setup (run me first)
@@ -156,36 +155,30 @@ stress[["question", "variant", "text"]]
 
 # %% [markdown]
 # ---
-# ## Part 2 — Hallucination detection vs human labels (RAGTruth)
+# ## Part 2 — You are the judge (5 min)
 #
-# In production there is usually **no reference answer**. Instead we ask: *is the answer
-# supported by the retrieved context?* (faithfulness / groundedness).
+# In production there is usually **no reference answer**. Instead we ask: *is the answer supported
+# by the retrieved context?* (faithfulness). Who decides that? Usually: people.
 #
 # **RAGTruth** has real answers from GPT-3.5/4, Llama-2 and Mistral to real search questions
-# (MS MARCO), and **human annotators marked every hallucinated span**. We take a balanced sample
-# of 40 (half contain a hallucination) and test three automatic detectors.
+# (MS MARCO), and **human annotators marked every hallucinated span**. Read 6 responses (context
+# included) and decide: **1 = contains a claim not supported by the context, 0 = faithful**.
+# Write your labels in the list *before* looking at the human labels. Then compare with your neighbour.
 
 # %%
 rt = load_ragtruth_qa(n=40, seed=0)
-print(rt.model.value_counts().to_dict())
-ex = rt[rt.hallucinated].iloc[0]
-print("QUESTION:", ex.question, "\n\nCONTEXT:", ex.context[:1200], "...\n\nRESPONSE:", ex.response)
-print("\nHUMAN-LABELLED HALLUCINATIONS:", [(s["text"], s["label_type"]) for s in ex.spans])
-
-# %% [markdown]
-# Three detectors, from cheap to expensive:
-# 1. **Lexical overlap**: share of the answer's content words that appear in the context.
-# 2. **NLI**: a small local model checks whether the context *entails* each answer sentence.
-# 3. **LLM-as-judge**: we ask the LLM.
+mine = rt.sample(min(6, len(rt)), random_state=3).reset_index(drop=True)
+for i, r in mine.iterrows():
+    display(Markdown(f"### Item {i}\n**Q:** {r.question}  \n**Response:** {r.response}"))
+    print("CONTEXT:", r.context[:1500], "\n")
 
 # %%
-from ragclass.retrieval import tokenize
-def lexical_support(context, answer):
-    a, c = set(tokenize(answer)), set(tokenize(context))
-    return len(a & c) / max(1, len(a))
+my_labels = [None, None, None, None, None, None]     # <- fill in 0 or 1 for items 0..5
 
-nli = G.NLIChecker()
+# %% [markdown]
+# The LLM judges the same 6 items with this prompt (6 calls):
 
+# %%
 JUDGE_FAITH = """Check the ANSWER for hallucinations against the CONTEXT.
 A hallucination is any claim in the answer that is not supported by the context, or that contradicts it.
 CONTEXT:
@@ -201,117 +194,10 @@ def judge_faith(r):
     out = parse_json(llm.ask(JUDGE_FAITH.format(context=r.context, question=r.question, answer=r.response)))
     return out.get("verdict", "").lower().startswith("halluc"), out.get("unsupported_claims", [])
 
-LEX_T, NLI_T = 0.8, 0.5        # 🔧 decision thresholds, used below; try other values
-rt["lexical"] = [lexical_support(r.context, r.response) for r in rt.itertuples()]
-rt["nli"] = [nli.faithfulness(r.context, r.response) for r in rt.itertuples()]
-judged = [judge_faith(r) for r in rt.itertuples()]
-rt["judge_halluc"] = [j[0] for j in judged]
-rt["judge_claims"] = [j[1] for j in judged]
-print("LLM calls so far:", llm.usage()["calls"])
-
-# %% [markdown]
-# **Look inside the detectors** on two responses that humans marked as hallucinated. Human-marked
-# spans are highlighted in red; each sentence gets the NLI entailment probability; below is the LLM
-# judge's raw output.
-
-# %%
-show_code(G.NLIChecker.faithfulness)
-for r in rt[rt.hallucinated].head(2).itertuples():
-    marked = highlight(r.response, [sp["text"] for sp in r.spans], color="#F8B4B4")
-    show_html(f"<b>Q:</b> {r.question}<br><b>Response ({r.model}), human spans in red:</b><br>{marked}")
-    for sent, p_ in nli.sentence_scores(r.context, r.response):
-        print(f"   NLI {p_:4.2f}  {'⚠️' if p_ < NLI_T else '  '}  {sent[:120]}")
-    print("   LLM judge:", json.dumps({"hallucinated": r.judge_halluc, "unsupported_claims": r.judge_claims})[:400], "\n")
-
-# %% [markdown]
-# The lexical and NLI scores are continuous, so we need a threshold to turn them into "hallucinated?" decisions:
-
-# %%
-def report(pred, name):
-    y = rt.hallucinated.values
-    tp, fp = (pred & y).sum(), (pred & ~y).sum()
-    fn, tn = (~pred & y).sum(), (~pred & ~y).sum()
-    return dict(detector=name, accuracy=(tp + tn) / len(y), precision=tp / max(1, tp + fp),
-                recall=tp / max(1, tp + fn), flagged=int(pred.sum()), missed=int(fn), false_alarms=int(fp))
-
-summary = pd.DataFrame([report(rt.lexical.values < LEX_T, f"lexical < {LEX_T}"),
-                        report(rt.nli.values < NLI_T, f"NLI < {NLI_T}"),
-                        report(rt.judge_halluc.values, "LLM judge")]).set_index("detector").round(2)
-summary
-
-# %% [markdown]
-# The threshold is a choice. Sweep it and watch precision and recall trade off:
-
-# %%
-sweep = []
-for t in [0.3, 0.5, 0.7, 0.8, 0.9]:
-    sweep.append({"threshold": t, **{f"lexical {k}": v for k, v in report(rt.lexical.values < t, "").items()
-                                     if k in ("precision", "recall")},
-                  **{f"NLI {k}": v for k, v in report(rt.nli.values < t, "").items() if k in ("precision", "recall")}})
-pd.DataFrame(sweep).set_index("threshold").round(2)
-
-# %% [markdown]
-# 🤔 **Question 2.0.** Is there a threshold that catches most hallucinations *without* flagging most faithful answers?
-#
-# <details><summary>Answer</summary>
-# Usually not with these cheap detectors. Faithful answers also paraphrase, add connecting words, and
-# combine sentences, so "not literally in the context" is common even without hallucination. A high
-# recall comes with many false alarms. Precision and recall are the honest way to report a
-# detector, and with 40 items each number is still noisy.
-# </details>
-
-# %% [markdown]
-# Now the interesting part: **where do the detectors disagree with the humans?**
-
-# %%
-wrong = rt[rt.judge_halluc != rt.hallucinated]
-for r in wrong.head(3).itertuples():
-    display(Markdown(
-        f"**Human label:** {'HALLUCINATED' if r.hallucinated else 'faithful'} · "
-        f"**LLM judge:** {'HALLUCINATED' if r.judge_halluc else 'faithful'} · NLI={r.nli:.2f} · lexical={r.lexical:.2f}  \n"
-        f"**Q:** {r.question}  \n**Response ({r.model}):** {r.response}  \n"
-        f"**Human-marked spans:** {[s['text'] for s in r.spans]}  \n**Judge's unsupported claims:** {r.judge_claims}"))
-    print("CONTEXT:", r.context[:1500], "\n" + "-" * 100)
-
-# %% [markdown]
-# 🤔 **Question 2.1.** Read the disagreements. Is the detector wrong, or the human? Is there always a right answer?
-#
-# <details><summary>Answer</summary>
-#
-# All three happen:
-# * The detector misses a subtle unsupported detail (a number or a date) that the human caught.
-# * The detector flags common knowledge that is true but not in the context. RAGTruth humans
-#   sometimes mark this as a hallucination and sometimes not (see the <code>implicit_true</code> field).
-# * The human label itself is debatable.
-#
-# "Faithful to the context" and "true in the world" are different properties, and annotation
-# guidelines have to choose.
-# </details>
-#
-# 🤔 **Question 2.2.** Your detector flags 30% of production answers. Who decides the threshold, and how?
-#
-# <details><summary>Answer</summary>
-# You need a <b>human-labelled sample</b> of your own traffic to choose the threshold:
-# trade false alarms (annoying, costly reviews) against misses (wrong answers reaching users).
-# The right trade-off depends on the domain, e.g. medical vs a shopping assistant. Without
-# human labels, the threshold is a guess.
-# </details>
-
-# %% [markdown]
-# ---
-# ## Part 3 — You are the judge (5 min)
-#
-# Read 6 responses (context included) and decide: **1 = contains a hallucination, 0 = faithful**.
-# Write your labels in the list *before* looking at the human labels. Then compare with your neighbour.
-
-# %%
-mine = rt.sample(min(6, len(rt)), random_state=3).reset_index(drop=True)
-for i, r in mine.iterrows():
-    display(Markdown(f"### Item {i}\n**Q:** {r.question}  \n**Response:** {r.response}"))
-    print("CONTEXT:", r.context[:1500], "\n")
-
-# %%
-my_labels = [None, None, None, None, None, None]     # <- fill in 0 or 1 for items 0..5
+judged = [judge_faith(r) for r in mine.itertuples()]
+mine["llm_judge"] = [int(j[0]) for j in judged]
+mine["judge_claims"] = [j[1] for j in judged]
+print("done")
 
 # %%
 if None in my_labels:
@@ -319,7 +205,6 @@ if None in my_labels:
 else:
     mine["you"] = my_labels
     mine["human"] = mine.hallucinated.astype(int)
-    mine["llm_judge"] = mine.judge_halluc.astype(int)
     display(mine[["you", "human", "llm_judge", "model"]])
     def kappa(a, b):   # Cohen's kappa: agreement corrected for chance
         a, b = np.asarray(a), np.asarray(b)
@@ -327,14 +212,21 @@ else:
         return (po - pe) / (1 - pe) if pe < 1 else 1.0
     print(f"you vs human:     agreement {np.mean(mine.you == mine.human):.0%}, kappa {kappa(mine.you, mine.human):.2f}")
     print(f"LLM vs human:     agreement {np.mean(mine.llm_judge == mine.human):.0%}, kappa {kappa(mine.llm_judge, mine.human):.2f}")
+    for i, r in mine.iterrows():                       # what the annotators marked, and what the judge claimed
+        marked = highlight(r.response, [sp["text"] for sp in r.spans], color="#F8B4B4")
+        show_html(f"<b>Item {i}</b> · human: {'HALLUCINATED' if r.human else 'faithful'} · you: {r.you} · "
+                  f"LLM judge: {r.llm_judge} {r.judge_claims}<br>{marked}")
 
 # %% [markdown]
-# 🤔 **Question 3.1.** How long did labelling 6 items take you? Did you agree with the original annotators? With your neighbour?
+# 🤔 **Question 2.1.** How long did labelling 6 items take you? Did you agree with the original annotators? With your neighbour? With the LLM?
 #
 # <details><summary>Answer</summary>
 # Careful labelling takes 1–2 minutes per item, even for short answers. Humans disagree too
-# (RAGTruth reports inter-annotator agreement well below 100%). That is why serious evaluation
-# needs <b>written guidelines, several annotators and agreement statistics</b>, not just "a human looked at it".
+# (RAGTruth reports inter-annotator agreement well below 100%): is true common knowledge that is
+# not in the context a hallucination? Is a slightly reworded number? Annotation guidelines have to
+# choose. That is why serious evaluation needs <b>written guidelines, several annotators and
+# agreement statistics</b>, not just "a human looked at it", and why an automatic judge must be
+# checked against such labels before you trust it.
 # </details>
 
 # %% [markdown]
@@ -346,8 +238,7 @@ else:
 # | Exact match | identical string | everything that is phrased differently |
 # | Token F1 / ROUGE | word overlap with a reference | negation, paraphrase, extra claims, length |
 # | Embedding similarity | same topic | negation, numbers, extra claims |
-# | NLI faithfulness | is each sentence entailed by the context | long contexts, multi-sentence reasoning, world knowledge |
-# | LLM-as-judge | an LLM's opinion, given your prompt | prompt-sensitive, verbosity and self-preference bias, inconsistent, costs money |
+# # | LLM-as-judge | an LLM's opinion, given your prompt | prompt-sensitive, verbosity and self-preference bias, inconsistent, costs money |
 # | Human judgement | what you actually care about | slow, expensive, and humans disagree too |
 #
 # **Every automatic metric measures a different thing, and none of them is good enough on its

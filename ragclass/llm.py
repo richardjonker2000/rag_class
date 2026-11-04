@@ -138,7 +138,9 @@ def start_ollama(models: list[str]) -> None:
     try:
         urllib.request.urlopen("http://localhost:11434", timeout=2)
     except Exception:  # noqa: BLE001
-        subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # one model in GPU memory at a time: the T4 also has to hold the embedding / reranker models
+        env = {**os.environ, "OLLAMA_MAX_LOADED_MODELS": "1"}
+        subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
         for _ in range(30):
             try:
                 urllib.request.urlopen("http://localhost:11434", timeout=2)

@@ -57,7 +57,7 @@ project, so these apply per student:
 | 5 | ~60–80 | 0 |
 
 About 150–170 Flash-Lite calls per student, about a third of the daily 500, so there is room to play.
-At 14 RPM the waiting is noticeable in Lab 4 (~4 min) and Lab 5 Part 6 (~5 min).
+At 14 RPM the waiting is noticeable in Lab 4 (~2 min) and Lab 5 Part 6 (~5 min).
 
 ## Timing and facilitation
 
@@ -73,7 +73,7 @@ At 14 RPM the waiting is noticeable in Lab 4 (~4 min) and Lab 5 Part 6 (~5 min).
 | 10:05 | Generation (5 min slides + Lab 3, 15 min) | Vote on "bigger model or better retrieval" before the lab; results slide after. |
 | 10:25 | Break | |
 | 10:35 | Evaluating answers (10 min) | |
-| 10:45 | Lab 4 (20 min) | Core: Parts 1–2; make sure everyone gets to Part 3 (you are the judge). Then the "which metric" slide. |
+| 10:45 | Lab 4 (20 min) | Core: Part 1; make sure everyone gets to Part 2 (you are the judge). Then the "which metric" slide. |
 | 11:05 | Break | |
 | 11:15 | Agents (10 min) | |
 | 11:25 | Lab 5 (25 min) | Everyone reads one full trace and runs the injection demo. |
@@ -99,8 +99,6 @@ At 14 RPM the waiting is noticeable in Lab 4 (~4 min) and Lab 5 Part 6 (~5 min).
   attack). Searching "heart attack treatment" among ~heart-related abstracts of the full corpus: PubMedBERT 6/10 mention MI, MiniLM and BGE 3/10, BM25 0/10 (full corpus).
 - **Stress test (Lab 4, real Gemini, 3 BioASQ answers):** negated answer F1 0.97 / embedding 0.99 / LLM judge 0.2;
   answer + invented claim F1 0.78 / embedding 0.90 / LLM judge **1.0**. The judge catches negation but not an added claim.
-- **RAGTruth detectors (Lab 4):** at default thresholds lexical and NLI flag almost everything (recall 1.0); the sweep
-  cell shows the trade-off. Quick run (12 items): LLM judge accuracy 0.75, lexical 0.75, NLI 0.58.
 - **Agents with Gemma 4 E2B (your Colab run):** closed-book 0.00, workflow 0.62, agent 0.75 (~2 LLM calls per question).
   Gemma doesn't know the 2023 stories (or says it can't access them), so the tools clearly matter.
 - **Agents (Lab 5, real Gemini):** multi-step tool use works (weather + Python, Wikipedia + Python). On a null question

@@ -31,7 +31,7 @@
 | 10:20–10:30 | **Break** | 10 | |
 | **Generation evaluation** | | | |
 | 10:30–10:40 | Theory: reference-based (EM/F1, ROUGE, embedding similarity) vs reference-free (LLM-as-judge: faithfulness, relevance); judge biases | 10 | slides |
-| 10:40–11:05 | Lab 4: five metrics vs BioASQ expert answers + stress test; NLI and LLM-judge vs RAGTruth human labels; students label answers themselves → no metric is enough, humans are key | 25 | `04_generation_eval` |
+| 10:40–11:05 | Lab 4: five metrics vs BioASQ expert answers + stress test; students label RAGTruth answers themselves and compare with the annotators and an LLM judge → no metric is enough, humans are key | 25 | `04_generation_eval` |
 | 11:05–11:15 | **Break** | 10 | |
 | **Agents (generic, retrieval as running example)** | | | |
 | 11:15–11:25 | Theory: workflow vs agent, when not to use one, tool schemas = prompts, loop, failure modes (loops, side effects, prompt injection), MCP/memory/multi-agent mention | 10 | slides |

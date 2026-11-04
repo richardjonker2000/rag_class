@@ -37,6 +37,28 @@ LABS = [("00_setup", "Lab 0 · Setup and warm-up", "08:15"),
         ("05_agents", "Lab 5 · Agents from scratch", "11:25")]
 
 
+# Prepended to every lab's setup cell in the combined notebook: models from earlier labs (embedding models,
+# rerankers, NLI) would otherwise stay on the 15 GB T4 next to the Ollama model and run it out of memory.
+FREE_GPU = """import gc
+def _holds_model(v, depth=0):
+    if type(v).__module__.split(".")[0] in ("torch", "transformers", "sentence_transformers", "ragclass"):
+        return True
+    if depth == 0 and isinstance(v, dict):
+        return any(_holds_model(x, 1) for x in list(v.values())[:50])
+    if depth == 0 and isinstance(v, (list, tuple)):
+        return any(_holds_model(x, 1) for x in v[:50])
+    return False
+for _name in [n for n, v in list(globals().items()) if not n.startswith("_") and _holds_model(v)]:
+    del globals()[_name]                     # previous lab's models and data: each lab loads what it needs
+gc.collect()
+try:
+    import torch; torch.cuda.empty_cache()
+except ImportError:
+    pass
+
+"""
+
+
 def build_combined() -> Path:
     """All labs in ONE notebook = one Colab machine: data, models and cached embeddings are shared."""
     name = "rag_class_all_labs.ipynb"
@@ -58,6 +80,9 @@ def build_combined() -> Path:
                 c.source = c.source.replace("# Lab", "## Lab", 1)        # demote the lab title under the section
             if c.cell_type == "code" and c.source.startswith("# @title Setup"):
                 c.source = c.source.replace("# @title Setup", "# @title Setup for this lab (quick if you ran the earlier labs)", 1)
+                if stem != LABS[0][0]:                                 # free the previous labs' models first
+                    first, rest = c.source.split("\n", 1)
+                    c.source = first + "\n" + FREE_GPU + rest
             if c.cell_type == "code" and c.source.startswith("# @title"):
                 c.metadata["cellView"] = "form"
             cells.append(c)

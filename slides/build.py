@@ -1166,16 +1166,15 @@ text([560, y + 20, 324, 20], "WHO CHECKS THE CHECKER?", 11, AMBER, bold=True)
 rich([560, y + 50, 324, 170], ["Compare every automatic metric with **human labels** on your own data, "
                                "and only then trust it to monitor at scale."], 17, INK, spacing=1.25)
 box([M, y + 252, W - 2 * M, 72], TINT[BLUE], preset="roundRect")
-rich([M + 18, y + 276, W - 2 * M - 36, 30], ["**In Lab 4:** an LLM judge, NLI and word overlap vs **human hallucination "
-                                             "labels** on real GPT-4, Llama-2 and Mistral answers (RAGTruth)."],
+rich([M + 18, y + 266, W - 2 * M - 36, 50], ["**In Lab 4:** you label real GPT-4, Llama-2 and Mistral answers for hallucinations, "
+                                             "then compare with the **human annotators** (RAGTruth) and an LLM judge."],
      15, INK, spacing=1.2)
 
 lab(4, "Metrics vs humans", 20, [
     "Five metrics on real answers vs BioASQ **expert answers**",
     "**Stress test:** paraphrase, negation, invented claim",
-    "**RAGTruth:** lexical, NLI and LLM-judge hallucination detection vs **human span labels**",
-    "**You are the judge:** label 6 answers, compare with humans and your neighbour",
-], "04_generation_eval", note="""10:45-11:05. Make sure everyone reaches Part 3 (5 min) -- the 'you are the judge'
+    "**You are the judge:** label 6 real LLM answers (RAGTruth), compare with the annotators, your neighbour and an LLM judge",
+], "04_generation_eval", note="""10:45-11:05. Make sure everyone reaches Part 2 (5 min) -- the 'you are the judge'
 experience is the point. Then the conclusion slide before the break.""")
 
 y = answer("So which metric should we use?", "Each metric measures something different. None is good enough alone.",
