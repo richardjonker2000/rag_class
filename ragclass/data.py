@@ -9,7 +9,7 @@
 Cache folder: $RAGCLASS_CACHE, else /content/ragclass_cache on Colab, else ~/.cache/ragclass.
 Tip: mount Google Drive and set RAGCLASS_CACHE to a Drive folder to survive runtime resets.
 
-    from ragclass.data import prepare_all, load_bioasq, load_multihop, load_ragtruth_qa
+    from ragclass.data import prepare_all, load_bioasq, load_multihop
     prepare_all()          # download everything up front (datasets + models)
 """
 from __future__ import annotations
@@ -17,7 +17,6 @@ from __future__ import annotations
 import ast
 import json
 import os
-import random
 import time
 import urllib.request
 from dataclasses import dataclass, field
@@ -67,12 +66,6 @@ FILES = {
     "multihop_queries": RemoteFile("multihop_queries.json", [
         HF.format(repo="yixuantt/MultiHopRAG", path="MultiHopRAG.json"),
         COURSE_MIRROR.format(name="multihop_queries.json")]),
-    "ragtruth_responses": RemoteFile("ragtruth_response.jsonl", [
-        GH_RAW.format(repo="ParticleMedia/RAGTruth", path="dataset/response.jsonl"),
-        COURSE_MIRROR.format(name="ragtruth_response.jsonl")]),
-    "ragtruth_sources": RemoteFile("ragtruth_source_info.jsonl", [
-        GH_RAW.format(repo="ParticleMedia/RAGTruth", path="dataset/source_info.jsonl"),
-        COURSE_MIRROR.format(name="ragtruth_source_info.jsonl")]),
 }
 
 
@@ -212,43 +205,6 @@ def load_multihop() -> MultiHop:
                     queries=q)
 
 
-# --------------------------------------------------------------------------- RAGTruth (QA part)
-
-def load_ragtruth_qa(n: int = 60, seed: int = 0, split: str = "test") -> pd.DataFrame:
-    """Real LLM answers to MS MARCO questions, with human hallucination labels (RAGTruth, QA task).
-
-    Returns a balanced sample of `n` responses: half with at least one human-labelled
-    hallucination span, half without. Columns: rid, model, question, context, response,
-    hallucinated (bool), spans (list of labelled spans).
-    """
-    if QUICK:
-        n = min(n, 12)
-    src = {}
-    with open(fetch("ragtruth_sources")) as f:
-        for line in f:
-            s = json.loads(line)
-            if s["task_type"] == "QA":
-                src[s["source_id"]] = s
-    rows = []
-    with open(fetch("ragtruth_responses")) as f:
-        for line in f:
-            r = json.loads(line)
-            if r["source_id"] not in src or r.get("split") != split or r.get("quality") != "good":
-                continue
-            s = src[r["source_id"]]["source_info"]
-            rows.append(dict(rid=r["id"], model=r["model"], question=s["question"],
-                             context=s["passages"], response=r["response"],
-                             hallucinated=len(r["labels"]) > 0, spans=r["labels"]))
-    df = pd.DataFrame(rows)
-    rng = random.Random(seed)
-    pos = df[df.hallucinated].index.tolist()
-    neg = df[~df.hallucinated].index.tolist()
-    rng.shuffle(pos), rng.shuffle(neg)
-    take = pos[: n // 2] + neg[: n - n // 2]
-    rng.shuffle(take)
-    return df.loc[take].reset_index(drop=True)
-
-
 # --------------------------------------------------------------------------- models
 
 MODELS = {
@@ -256,7 +212,6 @@ MODELS = {
     "embed_bge": "BAAI/bge-small-en-v1.5",
     "embed_bio": "NeuML/pubmedbert-base-embeddings",
     "reranker": "cross-encoder/ms-marco-MiniLM-L6-v2",
-    "nli": "cross-encoder/nli-deberta-v3-base",
 }
 
 
@@ -274,7 +229,7 @@ def prepare_all(models: bool = True) -> None:
             print("Downloading model", name)
             for attempt in range(3):
                 try:
-                    (CrossEncoder if key in ("reranker", "nli") else SentenceTransformer)(name, device=device)
+                    (CrossEncoder if key == "reranker" else SentenceTransformer)(name, device=device)
                     break
                 except Exception as e:  # noqa: BLE001
                     print(f"  failed ({e}); retrying")

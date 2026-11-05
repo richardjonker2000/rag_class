@@ -57,7 +57,7 @@ project, so these apply per student:
 | 5 | ~60–80 | 0 |
 
 About 150–170 Flash-Lite calls per student, about a third of the daily 500, so there is room to play.
-At 14 RPM the waiting is noticeable in Lab 4 (~2 min) and Lab 5 Part 6 (~5 min).
+At 14 RPM the waiting is noticeable in Lab 4 (~1 min) and Lab 5 Part 6 (~5 min).
 
 ## Timing and facilitation
 
@@ -73,7 +73,7 @@ At 14 RPM the waiting is noticeable in Lab 4 (~2 min) and Lab 5 Part 6 (~5 min).
 | 10:05 | Generation (5 min slides + Lab 3, 15 min) | Vote on "bigger model or better retrieval" before the lab; results slide after. |
 | 10:25 | Break | |
 | 10:35 | Evaluating answers (10 min) | |
-| 10:45 | Lab 4 (20 min) | Core: Part 1; make sure everyone gets to Part 2 (you are the judge). Then the "which metric" slide. |
+| 10:45 | Lab 4 (20 min) | Part 1 and the stress test (shorter now: use spare minutes for discussion). Then the "which metric" slide. |
 | 11:05 | Break | |
 | 11:15 | Agents (10 min) | |
 | 11:25 | Lab 5 (25 min) | Everyone reads one full trace and runs the injection demo. |

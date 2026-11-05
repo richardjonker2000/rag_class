@@ -31,7 +31,7 @@
 | 10:20–10:30 | **Break** | 10 | |
 | **Generation evaluation** | | | |
 | 10:30–10:40 | Theory: reference-based (EM/F1, ROUGE, embedding similarity) vs reference-free (LLM-as-judge: faithfulness, relevance); judge biases | 10 | slides |
-| 10:40–11:05 | Lab 4: five metrics vs BioASQ expert answers + stress test; students label RAGTruth answers themselves and compare with the annotators and an LLM judge → no metric is enough, humans are key | 25 | `04_generation_eval` |
+| 10:40–11:05 | Lab 4: five metrics vs BioASQ expert answers + stress test → no metric is enough, humans are key | 25 | `04_generation_eval` |
 | 11:05–11:15 | **Break** | 10 | |
 | **Agents (generic, retrieval as running example)** | | | |
 | 11:15–11:25 | Theory: workflow vs agent, when not to use one, tool schemas = prompts, loop, failure modes (loops, side effects, prompt injection), MCP/memory/multi-agent mention | 10 | slides |
@@ -52,7 +52,6 @@
     (median 6 per question) and expert answers. Used for retrieval, IR metrics, generation and reference-based eval.
   - **MultiHop-RAG**: 609 long news articles (Sep–Dec 2023), 2,556 questions (inference, comparison, temporal,
     null) with evidence sentences. Used for chunking and agents.
-  - **RAGTruth** (QA part): real LLM answers with human hallucination span labels. Used to compare metrics with humans.
 - **Chunk-level labels are chunker-independent:** MultiHop-RAG evidence sentences are located in the
   articles; a chunk is relevant if it covers a gold span. Any chunking strategy can be scored.
 - **Self-contained notebooks:** each one clones the repo and rebuilds its index in under a

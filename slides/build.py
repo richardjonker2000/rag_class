@@ -348,8 +348,8 @@ _new(NAVY)
 text([M, 70, 300, 20], "08:15 – 12:00  ·  HANDS-ON", 12, AMBER, bold=True)
 text([M, 120, 820, 140], "Advanced LLM Applications", 50, "#FFFFFF", bold=True)
 text([M, 188, 820, 60], "RAG, Agents, and Evaluation", 34, SOFT, bold=True)
-rich([M, 300, 700, 90], ["Real data all day: **40,000 PubMed abstracts** (BioASQ), **609 news articles** (MultiHop-RAG), "
-                         "**real LLM answers with human labels** (RAGTruth)."], 17, "#D5DEE8", spacing=1.25,
+rich([M, 300, 840, 90], ["Real data all day: **40,000 PubMed abstracts** (BioASQ) and "
+                         "**609 news articles** (MultiHop-RAG)."], 17, "#D5DEE8", spacing=1.25,
      accent=AMBER)
 text([M, 430, 500, 20], "Richard A. A. Jonker", 16, "#FFFFFF", bold=True)
 text([M, 454, 500, 20], "github.com/richardjonker2000/rag_class", 13, SOFT, font=MONO)
@@ -1166,16 +1166,15 @@ text([560, y + 20, 324, 20], "WHO CHECKS THE CHECKER?", 11, AMBER, bold=True)
 rich([560, y + 50, 324, 170], ["Compare every automatic metric with **human labels** on your own data, "
                                "and only then trust it to monitor at scale."], 17, INK, spacing=1.25)
 box([M, y + 252, W - 2 * M, 72], TINT[BLUE], preset="roundRect")
-rich([M + 18, y + 266, W - 2 * M - 36, 50], ["**In Lab 4:** you label real GPT-4, Llama-2 and Mistral answers for hallucinations, "
-                                             "then compare with the **human annotators** (RAGTruth) and an LLM judge."],
+rich([M + 18, y + 266, W - 2 * M - 36, 50], ["**In Lab 4:** an LLM judge next to F1, ROUGE and embedding similarity on BioASQ answers, "
+                                             "and a stress test: does it notice a negation or an invented claim?"],
      15, INK, spacing=1.2)
 
-lab(4, "Metrics vs humans", 20, [
+lab(4, "Metrics vs expert answers", 20, [
     "Five metrics on real answers vs BioASQ **expert answers**",
     "**Stress test:** paraphrase, negation, invented claim",
-    "**You are the judge:** label 6 real LLM answers (RAGTruth), compare with the annotators, your neighbour and an LLM judge",
-], "04_generation_eval", note="""10:45-11:05. Make sure everyone reaches Part 2 (5 min) -- the 'you are the judge'
-experience is the point. Then the conclusion slide before the break.""")
+], "04_generation_eval", note="""10:45-11:05. The stress test is the point: let them
+predict the scores before running it. Then the conclusion slide before the break.""")
 
 y = answer("So which metric should we use?", "Each metric measures something different. None is good enough alone.",
            note="""THE closing message of the evaluation block. Automatic metrics: monitoring, triage, regression tests.
@@ -1185,11 +1184,10 @@ table(M, y, [210, 330, 308], [
     ["Metric", "Really measures", "Blind to"],
     ["ROUGE / F1", "word overlap with a reference", "negation, paraphrase, extra claims"],
     ["Embedding sim.", "same topic", "negation, numbers, extra claims"],
-    ["NLI faithfulness", "is each sentence entailed by context", "long reasoning, world knowledge"],
     ["LLM-as-judge", "an LLM's opinion, given your prompt", "its own biases; inconsistent"],
     ["Humans", "what you actually care about", "slow, costly, and they disagree"],
-], size=13.5, row_h=36, colors={(5, 0): GREEN})
-rich([M, y + 232, W - 2 * M, 50], ["Automatic metrics to **monitor and triage**, **human evaluation** to decide "
+], size=13.5, row_h=36, colors={(4, 0): GREEN})
+rich([M, y + 196, W - 2 * M, 50], ["Automatic metrics to **monitor and triage**, **human evaluation** to decide "
                                    "and to calibrate. Keep humans reading real outputs."], 17, BLUE, bold=True,
      spacing=1.2)
 
@@ -1410,7 +1408,7 @@ for i, (t_, d_, col) in enumerate([
 y = content("References and further reading", note="All labs and slides: github.com/richardjonker2000/rag_class")
 rich([M, y, W - 2 * M, 360], [
     "**Data:** Krithara et al., BioASQ-QA (Scientific Data, 2023) · Tang & Yang, MultiHop-RAG (COLM 2024) · "
-    "Niu et al., RAGTruth (ACL 2024) · rag-datasets/rag-mini-bioasq (Hugging Face)",
+    "rag-datasets/rag-mini-bioasq (Hugging Face)",
     "**Retrieval:** Robertson & Zaragoza, The Probabilistic Relevance Framework: BM25 and Beyond (2009) · "
     "Reimers & Gurevych, Sentence-BERT (2019) · Cormack et al., Reciprocal Rank Fusion (SIGIR 2009) · "
     "Thakur et al., BEIR (2021) · Muennighoff et al., MTEB (2023) · Formal et al., SPLADE (SIGIR 2021) · "

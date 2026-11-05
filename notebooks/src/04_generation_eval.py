@@ -5,13 +5,10 @@
 #
 # Retrieval had clean metrics because "is this document relevant?" has a fairly clear answer.
 # For generated text it is much harder. In this lab you put the popular metrics to the test:
+# exact match, token F1, ROUGE-L, embedding similarity and an LLM judge, scored against BioASQ
+# expert answers, plus a **stress test** that shows what each metric really measures.
 #
-# 1. **Reference-based** metrics (exact match, token F1, ROUGE-L, embedding similarity,
-#    LLM-judge correctness) against BioASQ expert answers, plus a **stress test**.
-# 2. **You are the judge:** label real LLM answers (RAGTruth) for hallucinations yourself, and compare
-#    with the human annotators, your neighbour and an LLM judge.
-#
-# Needs an LLM (default: Gemma 4 E2B on your Colab GPU, same as Lab 3). About 25 LLM calls in total.
+# Needs an LLM (default: Gemma 4 E2B on your Colab GPU, same as Lab 3). About 20 LLM calls in total.
 
 # %%
 # @title Setup (run me first)
@@ -39,10 +36,9 @@ PROVIDER = "ollama"  # @param ["ollama", "gemini", "openai"]
 from ragclass import llm
 llm.setup(os.environ.get("RAGCLASS_LLM", PROVIDER))
 
-from ragclass.data import load_bioasq, load_ragtruth_qa
+from ragclass.data import load_bioasq
 from ragclass.retrieval import BM25, Reranker, rrf
 from ragclass import genmetrics as G
-from ragclass.show import show_code, show_html, highlight
 from sentence_transformers import SentenceTransformer
 
 bio = load_bioasq(n_questions=300)
@@ -155,82 +151,6 @@ stress[["question", "variant", "text"]]
 
 # %% [markdown]
 # ---
-# ## Part 2 — You are the judge (5 min)
-#
-# In production there is usually **no reference answer**. Instead we ask: *is the answer supported
-# by the retrieved context?* (faithfulness). Who decides that? Usually: people.
-#
-# **RAGTruth** has real answers from GPT-3.5/4, Llama-2 and Mistral to real search questions
-# (MS MARCO), and **human annotators marked every hallucinated span**. Read 6 responses (context
-# included) and decide: **1 = contains a claim not supported by the context, 0 = faithful**.
-# Write your labels in the list *before* looking at the human labels. Then compare with your neighbour.
-
-# %%
-rt = load_ragtruth_qa(n=40, seed=0)
-mine = rt.sample(min(6, len(rt)), random_state=3).reset_index(drop=True)
-for i, r in mine.iterrows():
-    display(Markdown(f"### Item {i}\n**Q:** {r.question}  \n**Response:** {r.response}"))
-    print("CONTEXT:", r.context[:1500], "\n")
-
-# %%
-my_labels = [None, None, None, None, None, None]     # <- fill in 0 or 1 for items 0..5
-
-# %% [markdown]
-# The LLM judges the same 6 items with this prompt (6 calls):
-
-# %%
-JUDGE_FAITH = """Check the ANSWER for hallucinations against the CONTEXT.
-A hallucination is any claim in the answer that is not supported by the context, or that contradicts it.
-CONTEXT:
-{context}
-
-QUESTION: {question}
-ANSWER:
-{answer}
-
-Reply only with JSON: {{"verdict": "supported" or "hallucinated", "unsupported_claims": ["..."]}}"""
-
-def judge_faith(r):
-    out = parse_json(llm.ask(JUDGE_FAITH.format(context=r.context, question=r.question, answer=r.response)))
-    return out.get("verdict", "").lower().startswith("halluc"), out.get("unsupported_claims", [])
-
-judged = [judge_faith(r) for r in mine.itertuples()]
-mine["llm_judge"] = [int(j[0]) for j in judged]
-mine["judge_claims"] = [j[1] for j in judged]
-print("done")
-
-# %%
-if None in my_labels:
-    print("Fill in all six labels first!")
-else:
-    mine["you"] = my_labels
-    mine["human"] = mine.hallucinated.astype(int)
-    display(mine[["you", "human", "llm_judge", "model"]])
-    def kappa(a, b):   # Cohen's kappa: agreement corrected for chance
-        a, b = np.asarray(a), np.asarray(b)
-        po = (a == b).mean(); pe = a.mean() * b.mean() + (1 - a.mean()) * (1 - b.mean())
-        return (po - pe) / (1 - pe) if pe < 1 else 1.0
-    print(f"you vs human:     agreement {np.mean(mine.you == mine.human):.0%}, kappa {kappa(mine.you, mine.human):.2f}")
-    print(f"LLM vs human:     agreement {np.mean(mine.llm_judge == mine.human):.0%}, kappa {kappa(mine.llm_judge, mine.human):.2f}")
-    for i, r in mine.iterrows():                       # what the annotators marked, and what the judge claimed
-        marked = highlight(r.response, [sp["text"] for sp in r.spans], color="#F8B4B4")
-        show_html(f"<b>Item {i}</b> · human: {'HALLUCINATED' if r.human else 'faithful'} · you: {r.you} · "
-                  f"LLM judge: {r.llm_judge} {r.judge_claims}<br>{marked}")
-
-# %% [markdown]
-# 🤔 **Question 2.1.** How long did labelling 6 items take you? Did you agree with the original annotators? With your neighbour? With the LLM?
-#
-# <details><summary>Answer</summary>
-# Careful labelling takes 1–2 minutes per item, even for short answers. Humans disagree too
-# (RAGTruth reports inter-annotator agreement well below 100%): is true common knowledge that is
-# not in the context a hallucination? Is a slightly reworded number? Annotation guidelines have to
-# choose. That is why serious evaluation needs <b>written guidelines, several annotators and
-# agreement statistics</b>, not just "a human looked at it", and why an automatic judge must be
-# checked against such labels before you trust it.
-# </details>
-
-# %% [markdown]
-# ---
 # ## Take-away
 #
 # | metric | what it really measures | blind spots |
@@ -238,7 +158,7 @@ else:
 # | Exact match | identical string | everything that is phrased differently |
 # | Token F1 / ROUGE | word overlap with a reference | negation, paraphrase, extra claims, length |
 # | Embedding similarity | same topic | negation, numbers, extra claims |
-# # | LLM-as-judge | an LLM's opinion, given your prompt | prompt-sensitive, verbosity and self-preference bias, inconsistent, costs money |
+# | LLM-as-judge | an LLM's opinion, given your prompt | prompt-sensitive, verbosity and self-preference bias, inconsistent, costs money |
 # | Human judgement | what you actually care about | slow, expensive, and humans disagree too |
 #
 # **Every automatic metric measures a different thing, and none of them is good enough on its
