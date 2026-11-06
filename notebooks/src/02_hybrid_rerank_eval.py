@@ -238,8 +238,8 @@ show_code(rrf)
 def hits10(run, qid): return len(set(run[qid][:10]) & qrels[qid])
 gap = {qid: abs(hits10(runs["BM25"], qid) - hits10(runs[best_dense], qid)) for qid in qids}
 q = bio.questions.set_index("qid").loc[max(gap, key=gap.get)]
-b_rank = {int(d): r for r, d in enumerate(bm25.search(q.question, K)[0], 1)}
-d_rank = {int(d): r for r, d in enumerate(dense[best_dense].search(q.question, K)[0], 1)}
+b_rank = {int(d): r for r, d in enumerate(bm25.search(q.question, k=K)[0], 1)}
+d_rank = {int(d): r for r, d in enumerate(dense[best_dense].search(q.question, k=K)[0], 1)}
 fused_idx, fused_sc = rrf([list(b_rank), list(d_rank)], top=K)
 cand = {d for d in list(b_rank)[:10] + list(d_rank)[:10]}
 walk = pd.DataFrame([{"doc": ids[d], "BM25 rank": b_rank.get(d, "–"), "dense rank": d_rank.get(d, "–"),
