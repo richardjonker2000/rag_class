@@ -315,8 +315,8 @@ lb = leaderboard(runs)          # on CPU only the reranked subset of questions i
 show_lb(lb)
 
 # %% [markdown]
-# **What did the reranker actually do?** One question: the hybrid top 10, and where each document
-# ends up after the cross-encoder has read it together with the question.
+# **What did the reranker actually do?** One question: the top 10 after reranking, where each document
+# was in the hybrid ranking before, and which documents the cross-encoder pulled up from further down.
 
 # %%
 show_code(Reranker.rerank)
@@ -327,11 +327,18 @@ cand = [id2idx[d] for d in hyb[q.name][:50]]
 new, ce = reranker.rerank(q.question, cand, bio.docs)
 new_rank = {int(d): r for r, d in enumerate(new, 1)}
 ce_score = {int(d): float(s_) for d, s_ in zip(new, ce)}
-before_after = pd.DataFrame([{"hybrid rank": r, "reranked": new_rank[d], "cross-encoder score": round(ce_score[d], 2),
-                              "relevant": "✅" if ids[d] in qrels[q.name] else "", "start of abstract": bio.docs[d][:70]}
-                             for r, d in enumerate(cand[:10], 1)])
+old_rank = {int(d): r for r, d in enumerate(cand, 1)}
+shown = sorted({int(d) for d in cand[:10]} | {int(d) for d in new[:10]}, key=new_rank.get)  # both top 10s
+before_after = pd.DataFrame([{
+    "after rerank": new_rank[d], "hybrid rank (before)": old_rank[d],
+    "moved": ("↑ came up from below" if old_rank[d] > 10 else "↓ dropped out of top 10" if new_rank[d] > 10
+              else f"↑ {old_rank[d] - new_rank[d]}" if old_rank[d] > new_rank[d]
+              else f"↓ {new_rank[d] - old_rank[d]}" if new_rank[d] > old_rank[d] else "="),
+    "cross-encoder score": round(ce_score[d], 2), "relevant": "✅" if ids[d] in qrels[q.name] else "",
+    "start of abstract": bio.docs[d][:80]} for d in shown])
 print("Q:", q.question)
-before_after
+print("Sorted by the reranked order. Rows below rank 10 are documents the reranker pushed out of the top 10.")
+before_after.style.hide(axis="index").set_properties(subset=["start of abstract", "moved"], **{"text-align": "left"})
 
 # %%
 lb["nDCG@10"][::-1].plot.barh(figsize=(7, 3.5), title="nDCG@10 on BioASQ questions (best at the top)", xlim=(0, 1)); plt.show()
