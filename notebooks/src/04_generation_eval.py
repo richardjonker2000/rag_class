@@ -5,7 +5,7 @@
 #
 # Retrieval had clean metrics because "is this document relevant?" has a fairly clear answer.
 # For generated text it is much harder. In this lab you put the popular metrics to the test:
-# exact match, token F1, ROUGE-L, embedding similarity and an LLM judge, scored against BioASQ
+# exact match, overlap F1 (shared words), ROUGE-L, embedding similarity and an LLM judge, scored against BioASQ
 # expert answers, plus a **stress test** that shows what each metric really measures.
 #
 # Needs an LLM (default: Gemma 4 E2B on your Colab GPU, same as Lab 3). About 20 LLM calls in total.
@@ -81,7 +81,7 @@ def judge_correct(q, ref, pred):
     return parse_json(llm.ask(JUDGE_CORRECT.format(q=q, ref=ref, pred=pred))).get("score", np.nan)
 
 def score_all(q, ref, pred):
-    return dict(EM=G.exact_match(pred, ref), F1=G.token_f1(pred, ref), ROUGE_L=G.rouge_l(pred, ref),
+    return dict(EM=G.exact_match(pred, ref), Overlap_F1=G.token_f1(pred, ref), ROUGE_L=G.rouge_l(pred, ref),
                 EmbSim=float(G.embedding_similarity([pred], [ref], emb)[0]),
                 LLM_judge=judge_correct(q, ref, pred) / 5)
 
@@ -91,19 +91,19 @@ for r in sample.itertuples():
     pred = rag(r.question)
     rows.append(dict(question=r.question, expert=r.answer, generated=pred, **score_all(r.question, r.answer, pred)))
 part1 = pd.DataFrame(rows)
-part1[["question", "EM", "F1", "ROUGE_L", "EmbSim", "LLM_judge"]].round(2)
+part1[["question", "EM", "Overlap_F1", "ROUGE_L", "EmbSim", "LLM_judge"]].round(2)
 
 # %%
 for r in part1.itertuples():
     display(Markdown(f"**Q:** {r.question}  \n**Expert:** {r.expert[:400]}  \n**Generated:** {r.generated}  \n"
-                     f"F1={r.F1:.2f} · ROUGE-L={r.ROUGE_L:.2f} · EmbSim={r.EmbSim:.2f} · judge={r.LLM_judge:.2f}"))
+                     f"Overlap F1={r.Overlap_F1:.2f} · ROUGE-L={r.ROUGE_L:.2f} · EmbSim={r.EmbSim:.2f} · judge={r.LLM_judge:.2f}"))
 
 # %% [markdown]
 # 🤔 **Question 1.1.** Read the pairs. Do the metric values match *your* sense of which answers are good? Why is exact match useless here?
 #
 # <details><summary>Answer</summary>
 # Exact match only works for short factoid answers ("BRCA1", "yes"). Free-text answers that are
-# fully correct get 0. F1 and ROUGE reward <i>word overlap</i>, so they punish correct answers
+# fully correct get 0. Overlap F1 and ROUGE reward <i>word overlap</i>, so they punish correct answers
 # phrased differently from the expert and are sensitive to answer length. Embedding similarity
 # mostly measures "same topic", and the LLM judge comes closest to meaning but has its own
 # biases. Each number measures something different.
@@ -133,7 +133,7 @@ for r in bio.questions.sample(3, random_state=2).itertuples():
         pred = ref if kind == "identical" else variant(kind, ref)
         rows.append(dict(question=r.question[:60], variant=kind, text=pred, **score_all(r.question, ref, pred)))
 stress = pd.DataFrame(rows)
-stress.groupby("variant", sort=False)[["F1", "ROUGE_L", "EmbSim", "LLM_judge"]].mean().round(2)
+stress.groupby("variant", sort=False)[["Overlap_F1", "ROUGE_L", "EmbSim", "LLM_judge"]].mean().round(2)
 
 # %%
 stress[["question", "variant", "text"]]
@@ -142,7 +142,7 @@ stress[["question", "variant", "text"]]
 # 🤔 **Question 1.2.** Which metrics rank *negated* above *paraphrase*? Which metric would you trust to catch an extra invented claim?
 #
 # <details><summary>Answer</summary>
-# Overlap metrics (F1, ROUGE-L) typically score the <b>negated</b> answer higher than the
+# Overlap metrics (overlap F1, ROUGE-L) typically score the <b>negated</b> answer higher than the
 # <b>paraphrase</b>, because changing "is" to "is not" keeps almost all words. Embedding
 # similarity also barely notices negation. None of the reference-based metrics is designed to
 # notice an <i>added</i> unsupported claim: the reference is still fully covered. The LLM judge
@@ -156,7 +156,7 @@ stress[["question", "variant", "text"]]
 # | metric | what it really measures | blind spots |
 # |---|---|---|
 # | Exact match | identical string | everything that is phrased differently |
-# | Token F1 / ROUGE | word overlap with a reference | negation, paraphrase, extra claims, length |
+# | Overlap F1 / ROUGE | word overlap with a reference | negation, paraphrase, extra claims, length |
 # | Embedding similarity | same topic | negation, numbers, extra claims |
 # | LLM-as-judge | an LLM's opinion, given your prompt | prompt-sensitive, verbosity and self-preference bias, inconsistent, costs money |
 # | Human judgement | what you actually care about | slow, expensive, and humans disagree too |
