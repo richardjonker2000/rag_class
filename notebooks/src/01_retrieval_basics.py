@@ -200,6 +200,23 @@ res3["evidence position"] = np.where(res3.evidence_at_word < 380, "in the first 
 res3.groupby("evidence position")[["sentence", "chunk_200", "whole_article"]].mean().round(3)
 
 # %% [markdown]
+# **How to read this table.** Two surprises, both with simple explanations:
+#
+# * **The evidence sentence scores lowest.** MultiHop-RAG questions are long and mention several
+#   articles and sources ("Does the Sporting News article claim … while CBSSports.com …"). One
+#   sentence covers *one* fact of *one* article, so it matches only part of the question. On its own it
+#   also loses its context: "Caesars also has a cash-out option" does not say it is from a Sporting News
+#   sportsbook review; many evidence sentences are worse ("He said the company …").
+# * **"After word 380", the whole article scores just as high**, although the model never even read
+#   the evidence (it stops at ~380 words). Similarity measures *same topic*, not *contains the answer*.
+#
+# ⚠️ **Careful:** this does **not** mean sentences are a bad chunk size. Cosine scores of texts with very
+# different lengths are not on the same scale, and in a real index a sentence never competes with a
+# whole article: it competes with **other sentences**. What matters is whether the right piece is
+# *ranked* above the other pieces of the same size, which is what Lab 2 measures (its chunk-size
+# stretch task finds that smaller chunks retrieve the evidence *more* often).
+
+# %% [markdown]
 # 🤔 **Question A1.** Why not embed every article as one vector, or paste whole articles into the prompt?
 #
 # <details><summary>Answer</summary>
