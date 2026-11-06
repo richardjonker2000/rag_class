@@ -53,7 +53,6 @@ PROVIDER = "ollama"  # @param ["ollama", "gemini", "openai"]
 from ragclass import llm
 llm.setup(os.environ.get("RAGCLASS_LLM", PROVIDER))
 print("model says:", llm.ask("Reply with exactly: ready"))
-# (the bigger model, Gemma 4 E4B, is only used in Lab 3 and downloads when first needed)
 
 # %%
 # @title 4 · Download all datasets and models (~1-2 min)

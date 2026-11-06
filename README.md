@@ -19,7 +19,7 @@ jumping in directly (e.g. after a runtime reset).
 | 0 | [00_setup](notebooks/00_setup.ipynb) [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/richardjonker2000/rag_class/blob/main/notebooks/00_setup.ipynb) | GPU and key check, downloads, warm-up: can an LLM cite PubMed from memory? | yes |
 | 1 | [01_retrieval_basics](notebooks/01_retrieval_basics.ipynb) [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/richardjonker2000/rag_class/blob/main/notebooks/01_retrieval_basics.ipynb) | chunking, BM25 from scratch, dense retrieval, where each wins | no |
 | 2 | [02_hybrid_rerank_eval](notebooks/02_hybrid_rerank_eval.ipynb) [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/richardjonker2000/rag_class/blob/main/notebooks/02_hybrid_rerank_eval.ipynb) | IR metrics, leaderboard, hybrid (RRF), reranking, incomplete labels, chunk size | no |
-| 3 | [03_generation](notebooks/03_generation.ipynb) [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/richardjonker2000/rag_class/blob/main/notebooks/03_generation.ipynb) | grounded prompts; model size vs retrieval quality; lost in the middle | yes |
+| 3 | [03_generation](notebooks/03_generation.ipynb) [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/richardjonker2000/rag_class/blob/main/notebooks/03_generation.ipynb) | grounded prompts; no vs weak vs good retrieval; lost in the middle | yes |
 | 4 | [04_generation_eval](notebooks/04_generation_eval.ipynb) [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/richardjonker2000/rag_class/blob/main/notebooks/04_generation_eval.ipynb) | reference-based metrics and an LLM judge vs expert answers, stress test | yes |
 | 5 | [05_agents](notebooks/05_agents.ipynb) [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/richardjonker2000/rag_class/blob/main/notebooks/05_agents.ipynb) | agent loop from scratch, real tools, tool descriptions, prompt injection, agent evaluation | yes |
 
@@ -28,7 +28,7 @@ what it needs. Downloads are cached, retried and verified (`ragclass/data.py`).
 
 ### LLM access
 
-Default: **Gemma 4 E2B** (and E4B as the "bigger" model in Lab 3), open models running on the student's own Colab
+Default: **Gemma 4 E2B**, an open model running on the student's own Colab
 GPU via **Ollama**. No account or API key needed; the first run downloads the model (~5 GB, 1–3 minutes).
 Alternatives (dropdown in each notebook): `gemini` (free key from <https://aistudio.google.com/apikey>, stored in
 Colab 🔑 *Secrets* as `GEMINI_API_KEY`) or `openai`. Model names are in `ragclass/llm.py` (`PROVIDERS`).

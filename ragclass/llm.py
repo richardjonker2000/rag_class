@@ -16,16 +16,16 @@ import time
 
 PROVIDERS = {
     "gemini": {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
-               "model": "gemini-3.5-flash-lite", "big_model": "gemini-3.6-flash", "key": "GEMINI_API_KEY",
+               "model": "gemini-3.5-flash-lite", "key": "GEMINI_API_KEY",
                # free tier per project (Nov 2026): flash-lite 15 RPM / 500 per day; flash 5 RPM / 20 per day
-               "rpm": 14, "big_rpm": 4},
-    "ollama": {"base_url": "http://localhost:11434/v1", "model": "gemma4:e2b", "big_model": "gemma4:e4b",
+               "rpm": 14},
+    "ollama": {"base_url": "http://localhost:11434/v1", "model": "gemma4:e2b",
                "key": None},
-    "openai": {"base_url": None, "model": "gpt-5-mini", "big_model": "gpt-5", "key": "OPENAI_API_KEY"},
+    "openai": {"base_url": None, "model": "gpt-5-mini", "key": "OPENAI_API_KEY"},
 }
 
-_state = {"client": None, "provider": None, "model": None, "big_model": None, "min_interval": 0.0,
-          "big_interval": 0.0, "last_call": {}, "pulled": set(), "usage": {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}}
+_state = {"client": None, "provider": None, "model": None, "min_interval": 0.0,
+          "last_call": {}, "pulled": set(), "usage": {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}}
 
 
 def _get_key(name: str) -> str:
@@ -42,14 +42,13 @@ def _get_key(name: str) -> str:
     return getpass(f"Paste your {name} (input hidden): ").strip()
 
 
-def setup(provider: str = "ollama", model: str | None = None, big_model: str | None = None,
+def setup(provider: str = "ollama", model: str | None = None,
           api_key: str | None = None, base_url: str | None = None, rpm: float | None = None) -> None:
     """Choose the provider. `rpm` spaces out calls to stay under a requests-per-minute limit."""
     from openai import OpenAI
 
     if provider == "fake":            # offline testing only: no model, canned replies
-        _state.update(client=_FakeClient(), provider="fake", model="fake", big_model="fake-big", min_interval=0.0,
-                      big_interval=0.0)
+        _state.update(client=_FakeClient(), provider="fake", model="fake", min_interval=0.0)
         print("LLM ready: FAKE provider (testing only)")
         return
     cfg = PROVIDERS[provider]
@@ -58,11 +57,10 @@ def setup(provider: str = "ollama", model: str | None = None, big_model: str | N
         api_key = "ollama"
     key = api_key or _get_key(cfg["key"])
     _state.update(client=OpenAI(api_key=key, base_url=base_url or cfg["base_url"], max_retries=0, timeout=90),
-                  provider=provider, model=model or cfg["model"], big_model=big_model or cfg["big_model"])
+                  provider=provider, model=model or cfg["model"])
     rpm = rpm if rpm is not None else cfg.get("rpm", 0)        # stay under the free-tier rate limits
     _state["min_interval"] = 60.0 / rpm if rpm else 0.0
-    _state["big_interval"] = 60.0 / cfg["big_rpm"] if cfg.get("big_rpm") else _state["min_interval"]
-    print(f"LLM ready: provider={provider}, model={_state['model']}, big_model={_state['big_model']}")
+    print(f"LLM ready: provider={provider}, model={_state['model']}")
 
 
 def _client():
@@ -84,8 +82,8 @@ def chat(messages: list[dict], tools: list[dict] | None = None, model: str | Non
         args["max_tokens"] = max_tokens
     m = args["model"]
     if _state["provider"] == "ollama" and m not in _state["pulled"]:
-        start_ollama([m])                 # e.g. the big model: downloaded the first time it is used
-    interval = _state["big_interval"] if m == _state["big_model"] else _state["min_interval"]
+        start_ollama([m])                 # another model: downloaded the first time it is used
+    interval = _state["min_interval"]
     for attempt in range(retries):
         wait = interval - (time.time() - _state["last_call"].get(m, 0.0))
         if wait > 0:
@@ -113,12 +111,8 @@ def ask(prompt: str, system: str | None = None, model: str | None = None, **kw) 
     return (chat(msgs, model=model, **kw).content or "").strip()
 
 
-def big() -> str:
-    """Name of the larger model of the current provider."""
-    return _state["big_model"]
-
-
-def small() -> str:
+def model() -> str:
+    """Name of the model in use."""
     return _state["model"]
 
 

@@ -431,7 +431,7 @@ print("avg LLM calls per question -> closed book: 1 | workflow: 1 | agent:", ev.
 #
 # * The **closed-book baseline** tells you how much the model already knows. Always run it. In our tests
 #   Gemma 4 E2B scored 0.00 closed-book (it doesn't know these 2023 stories, or says it can't access them),
-#   while Gemini scored 0.75: the big model already knew the news. On private data it is near zero for every model.
+#   while Gemini scored 0.75: Gemini already knew the news. On private data it is near zero for every model.
 # * Final-answer accuracy is necessary but not sufficient. Also evaluate the **trajectory**:
 #   did it use the right tools, how many steps, did it loop, did it attempt unsafe actions, did
 #   it cite real sources? And measure **cost and latency** per task.

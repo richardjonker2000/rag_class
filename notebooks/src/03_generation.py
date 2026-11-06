@@ -5,14 +5,14 @@
 #
 # We now put an LLM on top of the retriever and test one claim:
 #
-# > **Retrieval quality matters more than model size.**
+# > **The answer can only be as good as the retrieved documents.**
 #
 # 1. A grounded prompt: numbered sources, citations, permission to say "I don't know".
-# 2. The experiment: **{no retrieval, weak retrieval, good retrieval} × {small model, big model}**.
+# 2. The experiment: the same model and questions with **no retrieval, weak retrieval and good retrieval**.
 # 3. *(Stretch)* Lost in the middle: does the *position* of the evidence matter?
 #
-# Needs an LLM. Default: **Gemma 4 E2B** (small) and **Gemma 4 E4B** (bigger), open models running on your
-# Colab GPU via Ollama, no key needed. Optional: `PROVIDER = "gemini"` with a free key from
+# Needs an LLM. Default: **Gemma 4 E2B**, a small open model running on your Colab GPU via Ollama,
+# no key needed. Optional: `PROVIDER = "gemini"` with a free key from
 # https://aistudio.google.com/apikey in Colab 🔑 *Secrets* as `GEMINI_API_KEY`.
 
 # %%
@@ -75,11 +75,11 @@ def build_prompt(question, doc_idx):
     sources = "\n\n".join(f"[{n}] {bio.docs[i]}" for n, i in enumerate(doc_idx, 1))
     return f"SOURCES:\n{sources}\n\nQUESTION: {question}"
 
-def rag_answer(question, doc_idx, model=None):
-    return llm.ask(build_prompt(question, doc_idx), system=SYSTEM, model=model)
+def rag_answer(question, doc_idx):
+    return llm.ask(build_prompt(question, doc_idx), system=SYSTEM)
 
-def closed_book(question, model=None):
-    return llm.ask(f"{question}\nAnswer in at most 3 sentences.", model=model)
+def closed_book(question):
+    return llm.ask(f"{question}\nAnswer in at most 3 sentences.")
 
 row = bio.questions.iloc[0]
 docs = retrieve_good(row.question)
@@ -116,10 +116,10 @@ print(json.dumps([{"role": "system", "content": SYSTEM},
 
 # %% [markdown]
 # ---
-# ## Part 2 — The experiment: retrieval vs model size
+# ## Part 2 — The experiment: how much does retrieval matter?
 #
 # We pick real questions where the **weak** retriever found *no* expert-relevant document in its
-# top 5 while the **good** retriever found at least two. For each question we compare six answers:
+# top 5 while the **good** retriever found at least two. For each question we compare three answers:
 
 # %%
 picked = []
@@ -134,20 +134,12 @@ for r in bio.questions.itertuples():
         break
 print(f"{len(picked)} questions selected")
 
-# The bigger model is slower (and on Gemini's free tier limited to 20 requests/day). Switch it off to rerun
-# this cell quickly with the small model only.
-USE_BIG_MODEL = True  # @param {type:"boolean"}
 results = []
-docs_for = {r.question: (retrieve_weak(r.question), retrieve_good(r.question)) for r in picked}
-for model_name, model in [("small", llm.small())] + ([("big", llm.big())] if USE_BIG_MODEL else []):
-    for r in picked:                      # one model at a time: no swapping models in and out of GPU memory
-        weak, good = docs_for[r.question]
-        results.append(dict(question=r.question, model=model_name, condition="1 no retrieval",
-                            answer=closed_book(r.question, model)))
-        results.append(dict(question=r.question, model=model_name, condition="2 weak retrieval",
-                            answer=rag_answer(r.question, weak, model)))
-        results.append(dict(question=r.question, model=model_name, condition="3 good retrieval",
-                            answer=rag_answer(r.question, good, model)))
+for r in picked:
+    weak, good = retrieve_weak(r.question), retrieve_good(r.question)
+    results.append(dict(question=r.question, condition="1 no retrieval", answer=closed_book(r.question)))
+    results.append(dict(question=r.question, condition="2 weak retrieval", answer=rag_answer(r.question, weak)))
+    results.append(dict(question=r.question, condition="3 good retrieval", answer=rag_answer(r.question, good)))
 res = pd.DataFrame(results)
 print("LLM calls so far:", llm.usage()["calls"])
 
@@ -158,20 +150,20 @@ print("LLM calls so far:", llm.usage()["calls"])
 from IPython.display import display, Markdown
 for r in picked:
     display(Markdown(f"### {r.question}\n**Expert answer:** {r.answer[:600]}"))
-    t = res[res.question == r.question].pivot(index="condition", columns="model", values="answer")
-    display(t)
+    display(res[res.question == r.question].set_index("condition")[["answer"]])
 
 # %% [markdown]
-# 🤔 **Question 2.1.** Which change improved the answers more: **small → big model**, or **weak → good retrieval**? What happens to the big model when retrieval is weak?
+# 🤔 **Question 2.1.** How did the answers change from weak to good retrieval? What does the model do when retrieval is weak?
 #
 # <details><summary>Answer</summary>
-# Typically, with weak retrieval, <i>both</i> models either abstain ("I don't know"), which is
-# good behaviour, or answer something only loosely related to the documents. A bigger model
-# does not fix missing evidence, it just phrases the miss more fluently. With good retrieval,
-# the small model is usually already close to the expert answer. <b>Garbage in, eloquent garbage out.</b>
+# With weak retrieval the model either abstains ("I don't know"), which is good behaviour, or
+# answers something only loosely related to the documents. With good retrieval it is usually close
+# to the expert answer. The model did not change, only its input did: the generator cannot fix
+# missing evidence, it just phrases the miss fluently. <b>Garbage in, eloquent garbage out.</b>
+# A bigger model would not change this picture much; better retrieval does.
 # </details>
 #
-# 🤔 **Question 2.2.** Look at the *no retrieval* answers. The models clearly know a lot of biomedicine already. So what is RAG for?
+# 🤔 **Question 2.2.** Look at the *no retrieval* answers. The model clearly knows a lot of biomedicine already. So what is RAG for?
 #
 # <details><summary>Answer</summary>
 #
