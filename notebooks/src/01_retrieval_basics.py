@@ -210,11 +210,57 @@ res3.groupby("evidence position")[["sentence", "chunk_200", "whole_article"]].me
 # * **"After word 380", the whole article scores just as high**, although the model never even read
 #   the evidence (it stops at ~380 words). Similarity measures *same topic*, not *contains the answer*.
 #
-# ⚠️ **Careful:** this does **not** mean sentences are a bad chunk size. Cosine scores of texts with very
-# different lengths are not on the same scale, and in a real index a sentence never competes with a
-# whole article: it competes with **other sentences**. What matters is whether the right piece is
-# *ranked* above the other pieces of the same size, which is what Lab 2 measures (its chunk-size
-# stretch task finds that smaller chunks retrieve the evidence *more* often).
+# ⚠️ **Careful:** these cosine scores do not tell you which chunk size *retrieves* best. Scores of texts
+# with very different lengths are not on the same scale, and in a real index a sentence never competes
+# with a whole article: it competes with **other sentences**. What matters is whether the right piece
+# is *ranked* above the other pieces of the same size.
+#
+# **So let's rank.** Three indexes over *all* articles: every sentence, every 200-word chunk, every
+# whole article. Same embedding model, same questions. Does the piece holding the evidence make the
+# top 5, and how much text would we hand to the LLM?
+
+# %%
+from ragclass.retrieval import Dense
+whole = [dict(doc_id=d, start=0, end=len(t), text=t) for d, t in zip(mh.articles.doc_id, mh.articles.body)]
+sents = [dict(doc_id=d, start=a, end=b, text=t[a:b]) for d, t in zip(mh.articles.doc_id, mh.articles.body)
+         for a, b in C.sentences(t) if len(t[a:b].split()) >= 4]
+chunks200 = C.chunk_corpus(list(zip(mh.articles.doc_id, mh.articles.body)), C.fixed_size, size=200)
+
+def holds_evidence(piece, spans):
+    """The piece covers at least half of an evidence span (or the span covers half of a short piece)."""
+    for d, a, b in spans:
+        ov = min(b, piece["end"]) - max(a, piece["start"]) if d == piece["doc_id"] else 0
+        if ov > 0 and ov >= 0.5 * min(b - a, piece["end"] - piece["start"]):
+            return True
+    return False
+
+rows = []
+for name, pieces in [("sentence", sents), ("chunk_200", chunks200), ("whole_article", whole)]:
+    index = Dense([p["text"] for p in pieces], "BAAI/bge-small-en-v1.5", model=emb_model, show_progress=False)
+    hits, words, first_ranks = [], [], []
+    for r, top in zip(sample.itertuples(), index.search_many(sample["query"].tolist(), k=100)):
+        spans = mh.evidence_spans(r.qid)
+        ok = [holds_evidence(pieces[i], spans) for i in top[0][:100]]
+        first_ranks.append(ok.index(True) + 1 if True in ok else 101)
+        hits.append(any(ok[:5]))
+        words.append(sum(len(pieces[i]["text"].split()) for i in top[0][:5]))
+    rows.append({"index": name, "pieces in index": len(pieces), "evidence in top 5": np.mean(hits),
+                 "median rank of evidence": np.median(first_ranks), "words in top 5 (→ LLM)": int(np.mean(words))})
+pd.DataFrame(rows).set_index("index").round(2)
+
+# %% [markdown]
+# Now each piece competes only with pieces of its own size. Read **both** kinds of columns:
+#
+# * **Sentences** usually lose here, even against other sentences: these long questions mention several
+#   sources and names, and a lone sentence carries almost none of them. For short factoid questions
+#   ("What is the capital of …?") sentences can do much better: the result depends on *your* questions.
+# * **Whole articles** find the right article almost every time, but hand the LLM thousands of words,
+#   mostly about something else, and with 600 articles "top 5" is an easy target; with a million it is not.
+# * **200-word chunks** sit in between: the evidence is usually near the top and the LLM gets a page
+#   of text, not a book.
+#
+# That trade-off (finding it vs. how much text the LLM must read), not the raw cosine, decides the
+# chunk size. Lab 2 measures it properly.
 
 # %% [markdown]
 # 🤔 **Question A1.** Why not embed every article as one vector, or paste whole articles into the prompt?
