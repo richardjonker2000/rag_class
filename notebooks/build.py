@@ -32,7 +32,7 @@ def build(src: Path) -> Path:
 LABS = [("00_setup", "Lab 0 · Setup and warm-up", "08:15"),
         ("01_retrieval_basics", "Lab 1 · Retrieval basics: chunking, BM25, embeddings", "08:40"),
         ("02_hybrid_rerank_eval", "Lab 2 · Measuring and improving retrieval", "09:40"),
-        ("03_generation", "Lab 3 · Generation: model size vs retrieval", "10:10"),
+        ("03_generation", "Lab 3 · Generation: does retrieval quality matter?", "10:10"),
         ("04_generation_eval", "Lab 4 · Evaluating generated answers", "10:45"),
         ("05_agents", "Lab 5 · Agents from scratch", "11:25")]
 
