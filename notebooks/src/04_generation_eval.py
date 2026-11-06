@@ -112,34 +112,25 @@ for r in part1.itertuples():
 # %% [markdown]
 # ### Stress test: what do the metrics actually measure?
 #
-# We take real expert answers and create controlled variants of them:
-# * **paraphrase**: same meaning, different words → *should score high*
-# * **negated**: main claim flipped → *should score low*
-# * **plus unsupported claim**: correct answer + one extra invented sentence → *should be penalised*
+# One real expert answer, rewritten three ways by the LLM: a **paraphrase** (same meaning, should
+# score high), a **negation** (main claim flipped, should score low) and the answer **plus one invented
+# claim** (should be penalised). Then we score each version against the original. About 7 LLM calls.
 
 # %%
-def variant(kind, ref):
-    instr = {"paraphrase": "Rewrite this answer with different wording but exactly the same meaning.",
-             "negated": "Rewrite this answer so that its main claim is reversed (true becomes false), "
-                        "changing as few words as possible.",
-             "plus_unsupported": "Repeat this answer exactly, then add one plausible-sounding extra sentence "
-                                 "with a specific claim (a number, a drug or a gene) that is NOT in the answer."}[kind]
-    return llm.ask(f"{instr}\nOnly output the rewritten answer.\n\nANSWER: {ref}")
-
-rows = []
-for r in bio.questions.sample(3, random_state=2).itertuples():
-    ref = r.answer[:500]
-    for kind in ["identical", "paraphrase", "negated", "plus_unsupported"]:
-        pred = ref if kind == "identical" else variant(kind, ref)
-        rows.append(dict(question=r.question[:60], variant=kind, text=pred, **score_all(r.question, ref, pred)))
-stress = pd.DataFrame(rows)
-stress.groupby("variant", sort=False)[["Overlap_F1", "ROUGE_L", "EmbSim", "LLM_judge"]].mean().round(2)
-
-# %%
-stress[["question", "variant", "text"]]
+REWRITE = {"paraphrase": "Rewrite this answer with different wording but exactly the same meaning.",
+           "negated": "Rewrite this answer so that its main claim is reversed, changing as few words as possible.",
+           "plus invented claim": "Repeat this answer exactly, then add one plausible extra sentence with a "
+                                  "specific claim (a number, drug or gene) that is NOT in the answer."}
+r = bio.questions.sample(1, random_state=2).iloc[0]
+ref = r.answer[:400]
+versions = {"identical": ref} | {k: llm.ask(f"{v}\nOnly output the rewritten answer.\n\nANSWER: {ref}")
+                                 for k, v in REWRITE.items()}
+stress = pd.DataFrame([dict(version=k, **score_all(r.question, ref, t), text=t) for k, t in versions.items()])
+print("QUESTION:", r.question)
+stress.set_index("version").round(2)
 
 # %% [markdown]
-# 🤔 **Question 1.2.** Which metrics rank *negated* above *paraphrase*? Which metric would you trust to catch an extra invented claim?
+# 🤔 **Question 1.2.** Which metrics score the *negated* version above the *paraphrase*? Which metric would you trust to catch an extra invented claim?
 #
 # <details><summary>Answer</summary>
 # Overlap metrics (overlap F1, ROUGE-L) typically score the <b>negated</b> answer higher than the
