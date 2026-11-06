@@ -469,20 +469,21 @@ print(f"\n{len(row.relevant)} relevant abstracts, e.g.:\n", doc_text[row.relevan
 from collections import Counter
 from ragclass.retrieval import tokenize
 
-def bm25_scores_from_scratch(query, docs_tokens, k1=1.5, b=0.75):
-    N = len(docs_tokens)
-    avg_len = np.mean([len(d) for d in docs_tokens])
-    df = Counter(t for d in docs_tokens for t in set(d))                 # in how many docs does t appear?
+def bm25_scores_from_scratch(query, tokenized_docs, k1=1.5, b=0.75):
+    # tokenized_docs: one list of words per document, e.g. [['sodium', 'intake', 'blood', ...], ...]
+    N = len(tokenized_docs)
+    avg_len = np.mean([len(d) for d in tokenized_docs])
+    df = Counter(t for d in tokenized_docs for t in set(d))                 # in how many docs does t appear?
     scores = np.zeros(N)
     for t in set(tokenize(query)):
         idf = np.log(1 + (N - df[t] + 0.5) / (df[t] + 0.5))             # rare words weigh more
-        for i, d in enumerate(docs_tokens):
+        for i, d in enumerate(tokenized_docs):
             tf = d.count(t)
             if tf:
                 scores[i] += idf * tf * (k1 + 1) / (tf + k1 * (1 - b + b * len(d) / avg_len))
     return scores
 
-small = [tokenize(t) for t in bio.docs[:2000]]                            # slow loop: only 2k docs
+small = [tokenize(t) for t in bio.docs[:2000]]       # tokenize each abstract; slow loop: only 2k docs
 s = bm25_scores_from_scratch(row.question, small)
 print("top-3 docs in the first 2,000:", np.argsort(-s)[:3], np.sort(s)[::-1][:3].round(2))
 
