@@ -9,3 +9,8 @@ slides/out/png/
 slides/out/eq/
 slides/out/*.deckcraft
 slides/out/*.pptx
+# teaching material kept locally, not in the repo
+slides/
+instructor/
+scripts/
+PLAN.md

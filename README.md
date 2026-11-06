@@ -39,7 +39,4 @@ Colab 🔑 *Secrets* as `GEMINI_API_KEY`) or `openai`. Model names are in `ragcl
 notebooks/*.ipynb        the labs (open these in Colab)
 notebooks/src/*.py       editable sources of the notebooks (jupytext); `python notebooks/build.py` regenerates
 ragclass/                small shared library: data download, chunking, retrievers, IR metrics, LLM client, generation metrics
-slides/                  DeckCraft build script; `make -C slides` -> slides/out/rag_class.{pptx,pdf}
-instructor/notes.md      timing, facilitation notes, pre-class checklist, known risks
-PLAN.md                  course plan
 ```
