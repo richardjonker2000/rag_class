@@ -51,12 +51,12 @@ reranker = Reranker()
 
 def retrieve_good(q, k=5):
     """Hybrid (BM25 + BGE, fused with RRF) -> cross-encoder rerank of the top 50."""
-    cand, _ = rrf([bm25.search(q, 50)[0], bge.search(q, 50)[0]], top=50)
+    cand, _ = rrf([bm25.search(q, k=50)[0], bge.search(q, k=50)[0]], top=50)
     return reranker.rerank(q, cand, bio.docs, top=k)[0]
 
 def retrieve_weak(q, k=5):
     """Small general-purpose embedding model only."""
-    return minilm.search(q, k)[0]
+    return minilm.search(q, k=k)[0]
 print("ready")
 
 # %% [markdown]
@@ -195,7 +195,7 @@ for r in picked:
 # %%
 r = picked[0] if picked else bio.questions.iloc[0]
 good = retrieve_good(r.question, k=1)
-distractors = [i for i in bm25.search(r.question, 60)[0] if ids[i] not in set(r.relevant)][:19]
+distractors = [i for i in bm25.search(r.question, k=60)[0] if ids[i] not in set(r.relevant)][:19]
 for pos in [0, 10, 19]:
     ctx = list(distractors)
     ctx.insert(pos, good[0])

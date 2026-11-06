@@ -61,7 +61,7 @@ print(f"{len(bio.docs):,} abstracts, {len(qids)} labelled questions")
 def _pick(strict):
     for q in bio.questions.itertuples():
         rel = set(q.relevant)
-        ranked = ids[bm25.search(q.question, 100)[0]].tolist()
+        ranked = ids[bm25.search(q.question, k=100)[0]].tolist()
         top5 = [d in rel for d in ranked[:5]]
         if (not top5[0] and 2 <= sum(top5) <= 3 and len(rel) >= 6) if strict else (1 <= sum(top5) <= 4):
             return q, rel, ranked
@@ -131,7 +131,7 @@ show_code(M.ndcg_at_k, M.average_precision)
 # %%
 K = 100
 runs = {}
-runs["BM25"] = {qid: ids[bm25.search(q, K)[0]].tolist() for qid, q in zip(qids, questions)}
+runs["BM25"] = {qid: ids[bm25.search(q, k=K)[0]].tolist() for qid, q in zip(qids, questions)}
 
 dense_models = {"MiniLM (general, small)": "sentence-transformers/all-MiniLM-L6-v2",
                 "BGE-small (general, stronger)": "BAAI/bge-small-en-v1.5"}
@@ -142,7 +142,7 @@ dense = {}
 for name, path in dense_models.items():
     t = time.time()
     dense[name] = Dense(bio.docs, path, show_progress=False)
-    res = dense[name].search_many(questions, K)
+    res = dense[name].search_many(questions, k=K)
     runs[name] = {qid: ids[i].tolist() for qid, (i, _) in zip(qids, res)}
     print(f"{name}: embedded in {time.time()-t:.0f}s")
 
@@ -215,10 +215,10 @@ print(f"{b} better on {(per[b] > per[a]).sum()} questions, worse on {(per[b] < p
 best_dense = max(dense_models, key=lambda n: M.evaluate(runs[n], qrels)["nDCG@10"])   # the best dense model
 print("best dense model:", best_dense)
 def hybrid_run(dense_name, k_rrf=60, weights=(1, 1)):
-    res = dense[dense_name].search_many(questions, K)
+    res = dense[dense_name].search_many(questions, k=K)
     out = {}
     for qid, q, (di, _) in zip(qids, questions, res):
-        bi = bm25.search(q, K)[0]
+        bi = bm25.search(q, k=K)[0]
         rankings = [bi] * weights[0] + [di] * weights[1]          # crude weighting: repeat a list
         out[qid] = ids[rrf(rankings, k=k_rrf, top=K)[0]].tolist()
     return out

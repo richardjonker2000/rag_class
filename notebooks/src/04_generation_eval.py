@@ -65,7 +65,7 @@ print("ready")
 SYSTEM = ("Answer the biomedical question using only the numbered sources, citing them like [1]. "
           "At most 3 sentences.")
 def rag(q):
-    cand = bm25.search(q, 50)[0]
+    cand = bm25.search(q, k=50)[0]
     top = reranker.rerank(q, cand, bio.docs, top=5)[0]
     src = "\n\n".join(f"[{n}] {bio.docs[i]}" for n, i in enumerate(top, 1))
     return llm.ask(f"SOURCES:\n{src}\n\nQUESTION: {q}", system=SYSTEM)

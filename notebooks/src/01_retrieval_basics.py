@@ -503,7 +503,7 @@ def show(query, idx, scores, relevant=(), n=5, width=160):
         mark = "✅" if ids[i] in rel else "  "
         print(f"{r}. {mark} [{s:6.2f}] {bio.docs[i][:width]}")
 
-idx, sc = bm25.search(row.question, 10)
+idx, sc = bm25.search(row.question, k=10)      # k = how many results: the 10 best documents, best first
 show(row.question, idx, sc, row.relevant)
 
 # %% [markdown]
@@ -557,7 +557,7 @@ pd.Series(bm25.explain(row.question, idx[0])).sort_values(ascending=False).round
 def about_mi(i):
     return "myocardial infarction" in bio.docs[i].lower()
 for q in ["heart attack treatment", "myocardial infarction treatment"]:
-    i, s = bm25.search(q, 10)
+    i, s = bm25.search(q, k=10)
     print(f"\n>>> {q!r}: {sum(about_mi(j) for j in i)}/10 of the top 10 mention myocardial infarction")
     show(q, i, s, width=110, n=3)
 
@@ -669,13 +669,13 @@ t = time.time()
 dense = Dense(bio.docs, "sentence-transformers/all-MiniLM-L6-v2", model=model)
 print(f"embedded {len(bio.docs):,} abstracts in {time.time()-t:.0f}s -> matrix {dense.emb.shape}")
 
-idx, sc = dense.search(row.question, 10)
+idx, sc = dense.search(row.question, k=10)
 show(row.question, idx, sc, row.relevant)
 
 # %%
 show_code(Dense.search, Dense.encode_queries)
 for q in ["heart attack treatment", "myocardial infarction treatment"]:
-    i, s = dense.search(q, 10)
+    i, s = dense.search(q, k=10)
     print(f"\n>>> {q!r}: {sum(about_mi(j) for j in i)}/10 mention myocardial infarction")
     show(q, i, s, width=110, n=3)
 
@@ -698,8 +698,8 @@ for q in ["heart attack treatment", "myocardial infarction treatment"]:
 
 # %%
 qs = bio.questions
-b_runs = [ids[bm25.search(q, 10)[0]] for q in qs.question]
-d_runs = [ids[i] for i, _ in dense.search_many(qs.question.tolist(), 10)]
+b_runs = [ids[bm25.search(q, k=10)[0]] for q in qs.question]
+d_runs = [ids[i] for i, _ in dense.search_many(qs.question.tolist(), k=10)]
 hits = lambda run, rel: len(set(run) & set(rel))
 qs = qs.assign(bm25_hits=[hits(r, rel) for r, rel in zip(b_runs, qs.relevant)],
                dense_hits=[hits(r, rel) for r, rel in zip(d_runs, qs.relevant)])
@@ -714,8 +714,8 @@ print("\nDense wins most clearly on:"); print(qs.nlargest(4, "diff")[["question"
 
 # %%
 pick = qs.nsmallest(1, "diff").iloc[0]          # change to qs.nlargest(1, "diff").iloc[0], or any row
-print("Q:", pick.question, "\n\n--- BM25 ---"); i, s = bm25.search(pick.question, 5); show(pick.question, i, s, pick.relevant)
-print("\n--- Dense ---"); i, s = dense.search(pick.question, 5); show(pick.question, i, s, pick.relevant)
+print("Q:", pick.question, "\n\n--- BM25 ---"); i, s = bm25.search(pick.question, k=5); show(pick.question, i, s, pick.relevant)
+print("\n--- Dense ---"); i, s = dense.search(pick.question, k=5); show(pick.question, i, s, pick.relevant)
 
 # %% [markdown]
 # 🤔 **Question D1.** On this biomedical corpus, the general-purpose embedding model does *not* beat 40-year-old BM25. Why might that be?
@@ -755,6 +755,6 @@ print("\n--- Dense ---"); i, s = dense.search(pick.question, 5); show(pick.quest
 # import faiss
 # index = faiss.IndexHNSWFlat(dense.emb.shape[1], 32, faiss.METRIC_INNER_PRODUCT)
 # index.add(dense.emb)
-# scores, idx = index.search(dense.encode_queries([row.question]), 10)
+# scores, idx = index.search(dense.encode_queries([row.question]), k=10)
 # ```
 # 4. **Break it.** Write a question that BM25 answers perfectly and dense gets completely wrong, and the reverse.
