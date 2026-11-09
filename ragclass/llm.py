@@ -127,8 +127,14 @@ def start_ollama(models: list[str]) -> None:
 
     if not shutil.which("ollama"):
         print("Installing Ollama (about 1 minute)...")
-        subprocess.run("apt-get -qq install -y zstd > /dev/null 2>&1; "
-                       "curl -fsSL https://ollama.com/install.sh | sh > /dev/null", shell=True, check=True)
+        if not shutil.which("zstd"):          # the Ollama download is a .tar.zst archive
+            subprocess.run("apt-get update -qq > /dev/null 2>&1; apt-get install -y -qq zstd > /dev/null 2>&1",
+                           shell=True)
+        r = subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True,
+                           capture_output=True, text=True)
+        if r.returncode != 0 or not shutil.which("ollama"):
+            print(r.stdout[-2000:], r.stderr[-2000:], sep="\n")
+            raise RuntimeError("Ollama install failed (output above). Plan B: set PROVIDER = 'gemini'.")
     try:
         urllib.request.urlopen("http://localhost:11434", timeout=2)
     except Exception:  # noqa: BLE001
