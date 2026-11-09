@@ -130,9 +130,15 @@ def start_ollama(models: list[str]) -> None:
         if not shutil.which("zstd"):          # the Ollama download is a .tar.zst archive
             subprocess.run("apt-get update -qq > /dev/null 2>&1; apt-get install -y -qq zstd > /dev/null 2>&1",
                            shell=True)
-        r = subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True,
-                           capture_output=True, text=True)
-        if r.returncode != 0 or not shutil.which("ollama"):
+        for attempt in range(4):              # the Ollama download server sometimes answers 504: retry
+            r = subprocess.run("curl -fsSL https://ollama.com/install.sh | sh", shell=True,
+                               capture_output=True, text=True)
+            if r.returncode == 0 and shutil.which("ollama"):
+                break
+            print(f"  download failed, retrying in 15 s ({attempt + 1}/3)..." if attempt < 3 else "")
+            if attempt < 3:
+                time.sleep(15)
+        if not shutil.which("ollama"):
             print(r.stdout[-2000:], r.stderr[-2000:], sep="\n")
             raise RuntimeError("Ollama install failed (output above). Plan B: set PROVIDER = 'gemini'.")
     try:
